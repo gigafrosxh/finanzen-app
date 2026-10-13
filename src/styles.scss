@@ -84,10 +84,7 @@ button {
 .shell {
   display: flex;
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--app-height, 100%);
+  inset: 0;
   overflow: hidden;
 }
 
