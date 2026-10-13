@@ -1,0 +1,77 @@
+{
+  "configVersion": 1,
+  "timestamp": 1791918780756,
+  "index": "/finanzen-app/index.html",
+  "assetGroups": [
+    {
+      "name": "app",
+      "installMode": "prefetch",
+      "updateMode": "prefetch",
+      "cacheQueryOptions": {
+        "ignoreVary": true
+      },
+      "urls": [
+        "/finanzen-app/index.html",
+        "/finanzen-app/main-DAFDR5BB.js",
+        "/finanzen-app/manifest.webmanifest",
+        "/finanzen-app/styles-TRKIESWD.css"
+      ],
+      "patterns": []
+    },
+    {
+      "name": "assets",
+      "installMode": "lazy",
+      "updateMode": "prefetch",
+      "cacheQueryOptions": {
+        "ignoreVary": true
+      },
+      "urls": [
+        "/finanzen-app/icons/apple-touch-icon.png",
+        "/finanzen-app/icons/icon-128x128.png",
+        "/finanzen-app/icons/icon-144x144.png",
+        "/finanzen-app/icons/icon-152x152.png",
+        "/finanzen-app/icons/icon-192x192.png",
+        "/finanzen-app/icons/icon-384x384.png",
+        "/finanzen-app/icons/icon-512x512.png",
+        "/finanzen-app/icons/icon-72x72.png",
+        "/finanzen-app/icons/icon-96x96.png"
+      ],
+      "patterns": []
+    }
+  ],
+  "dataGroups": [],
+  "hashTable": {
+    "/finanzen-app/icons/apple-touch-icon.png": "2a97c6cf0287b679278404e1e9de1839efdbc91e",
+    "/finanzen-app/icons/icon-128x128.png": "51086b24fdae64894e88ad3207189faecf4f00d7",
+    "/finanzen-app/icons/icon-144x144.png": "c66c046dfad8f43610e469e41adc6db03379a305",
+    "/finanzen-app/icons/icon-152x152.png": "b084dac1ec20227df3cab3fc1eb3ede534332ddd",
+    "/finanzen-app/icons/icon-192x192.png": "6af90ed5eb242f6f4b804c9550376be505468782",
+    "/finanzen-app/icons/icon-384x384.png": "ddaeeb4c7517819e7208a6197134058233b334ee",
+    "/finanzen-app/icons/icon-512x512.png": "e29a2578a8b05981f5c50ab6690ed1b8917aa0fd",
+    "/finanzen-app/icons/icon-72x72.png": "49e53a38ca9bc77a850fb90d79b976caef94d700",
+    "/finanzen-app/icons/icon-96x96.png": "d4d554064baa638115fa53b6fc5eb2b1fa085b3b",
+    "/finanzen-app/index.html": "1b0059d47a79f96f89a84d51197ff32a4f2900d4",
+    "/finanzen-app/main-DAFDR5BB.js": "3c3caf16efc9492e19a4f970f4603f40d8a2b009",
+    "/finanzen-app/manifest.webmanifest": "73b6369a09b64e45fb612c32d808e3151109ba94",
+    "/finanzen-app/styles-TRKIESWD.css": "69e99bf3b57cdab79a2cc0f979a86ee2700e86d2"
+  },
+  "navigationUrls": [
+    {
+      "positive": true,
+      "regex": "^\\/.*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*\\.[^/]*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*__[^/]*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*__[^/]*\\/.*$"
+    }
+  ],
+  "navigationRequestStrategy": "performance"
+}
