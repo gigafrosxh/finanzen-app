@@ -83,8 +83,7 @@ button {
 /* Layout */
 .shell {
   display: flex;
-  position: fixed;
-  inset: 0;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -599,7 +598,7 @@ input[type='date'] {
 
 /* Eingabeleiste wie bei ChatGPT */
 .composer {
-  padding: 6px 16px max(8px, calc(env(safe-area-inset-bottom) - 14px));
+  padding: 6px 16px calc(8px + env(safe-area-inset-bottom));
 }
 .composer-inner {
   max-width: 760px;
@@ -650,7 +649,7 @@ input[type='date'] {
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(80px + env(safe-area-inset-bottom));
+  bottom: calc(110px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   width: min(92vw, 520px);
   background: var(--surface-2);
@@ -753,9 +752,6 @@ input[type='date'] {
   }
   .hero .big {
     font-size: 2rem;
-  }
-  .hint {
-    display: none;
   }
 }
 
