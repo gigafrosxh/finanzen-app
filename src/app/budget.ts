@@ -223,13 +223,15 @@ export interface DailyFood {
   perDay: number;
 }
 
-/** Wie viel pro Schultag noch fürs Essen bleibt. Schultage werden auf die Werktage begrenzt. */
+/** Wie viel pro Schultag noch fürs Essen bleibt. */
 export function dailyFood(month: Month, s: Summary, today = new Date()): DailyFood | null {
   const weekdays = remainingWeekdays(month.id, today);
   if (weekdays === 0) return null;
   const food = s.budgets.find((b) => b.key === 'food')!;
   const left = r2(Math.max(0, food.budget - food.spent));
-  const days = Math.max(1, Math.min(weekdays, month.schoolDays));
+  // Lange Schultage gleichmäßig über die Werktage verteilt annehmen
+  const allWeekdays = remainingWeekdays(month.id, new Date(Number(month.id.slice(0, 4)), Number(month.id.slice(5)) - 1, 1));
+  const days = Math.max(1, Math.round((month.schoolDays * weekdays) / allWeekdays));
   return { left, days, perDay: r2(left / days) };
 }
 

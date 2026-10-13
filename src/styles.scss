@@ -940,3 +940,24 @@ input[type='date'] {
 .danger-btn {
   color: var(--red);
 }
+
+.version {
+  color: inherit;
+  font-size: inherit;
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 2px;
+}
+.release {
+  margin-bottom: 14px;
+  .small {
+    margin-left: 6px;
+  }
+  ul {
+    margin: 6px 0 0;
+    padding-left: 20px;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+}

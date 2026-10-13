@@ -89,8 +89,8 @@ describe('Tagesbudget', () => {
   it('teilt das Essensbudget auf die restlichen Schultage', () => {
     const m = month();
     const d = dailyFood(m, summarize(m, new Date(2026, 9, 26)), new Date(2026, 9, 26))!;
-    // 26.–30.10.2026 sind 5 Werktage
-    expect(d).toEqual({ left: 60.3, days: 5, perDay: 12.06 });
+    // 26.–30.10.2026 sind 5 von 22 Werktagen → 13 × 5 / 22 ≈ 3 Schultage
+    expect(d).toEqual({ left: 60.3, days: 3, perDay: 20.1 });
   });
 });
 

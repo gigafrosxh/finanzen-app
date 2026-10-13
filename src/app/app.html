@@ -342,6 +342,9 @@
                     <label class="secondary file-btn">⬆︎ Importieren<input type="file" accept="application/json,.json" (change)="importData($event)" /></label>
                   </div>
                 </div>
+                <div class="hint">
+                  <button type="button" class="version" (click)="releasesOpen.set(true)">Version {{ version }}</button>
+                </div>
               }
             }
           }
@@ -361,7 +364,10 @@
           <input #msgInput name="message" [(ngModel)]="message" placeholder="Was ist passiert? z. B. Döner 7,50" autocomplete="off" enterkeyhint="send" />
           <button type="submit" class="send" [disabled]="!message.trim()" aria-label="Senden">↑</button>
         </div>
-        <div class="hint">Deine Daten bleiben nur auf diesem Gerät.</div>
+        <div class="hint">
+          Deine Daten bleiben nur auf diesem Gerät ·
+          <button type="button" class="version" (click)="releasesOpen.set(true)">v{{ version }}</button>
+        </div>
       </form>
     }
   </main>
@@ -405,5 +411,26 @@
         <button type="submit" class="primary" [disabled]="!form.amount">Speichern</button>
       </div>
     </form>
+  </div>
+}
+
+@if (releasesOpen()) {
+  <div class="modal-backdrop" (click)="releasesOpen.set(false)">
+    <div class="sheet" (click)="$event.stopPropagation()">
+      <h3>Was ist neu</h3>
+      @for (r of releases; track r.version) {
+        <div class="release">
+          <div><strong>v{{ r.version }}</strong> <span class="muted small">{{ r.date }}</span></div>
+          <ul>
+            @for (c of r.changes; track $index) {
+              <li>{{ c }}</li>
+            }
+          </ul>
+        </div>
+      }
+      <div class="actions">
+        <button type="button" class="primary" (click)="releasesOpen.set(false)">Schließen</button>
+      </div>
+    </div>
   </div>
 }

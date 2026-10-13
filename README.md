@@ -32,6 +32,10 @@ Schreib einfach, was passiert ist. Mit „hilfe“ zeigt die App alle Befehle. S
 | `Essensbudget 70`, `Taschengeld 260`, `Sparziel 2000`, `Sparbuch Stand 340` | Einstellungen |
 | `Döner 7,50, getankt 30 und Oma 20 geschenkt` | Mehrere Einträge auf einmal |
 
+## Versionen
+
+Die aktuelle Version steht ganz unten in der App. Antippen zeigt, was neu ist. Details in [CHANGELOG.md](CHANGELOG.md).
+
 ## Entwicklung
 
 ```bash

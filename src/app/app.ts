@@ -5,6 +5,7 @@ import { eur, r2 } from './budget';
 import { CATEGORY_ICONS, CATEGORY_LABELS, Entry, EntryKind, ExpenseCategory, Settings } from './models';
 import { isoDate } from './parser';
 import { Store, fmtDate, monthLabel } from './store';
+import { RELEASES, VERSION } from './version';
 
 type View = 'overview' | 'chat' | 'calendar' | 'entries' | 'stats' | 'settings';
 type EntryFilter = 'all' | ExpenseCategory | 'income' | 'savings';
@@ -35,6 +36,9 @@ export class App {
 
   protected readonly view = signal<View>('overview');
   protected readonly sidebarOpen = signal(false);
+  protected readonly version = VERSION;
+  protected readonly releases = RELEASES;
+  protected readonly releasesOpen = signal(false);
   protected readonly toast = signal<string | null>(null);
   protected readonly toastUndo = signal<(() => void) | null>(null);
   protected readonly search = signal('');
