@@ -89,7 +89,8 @@ export function summarize(month: Month, today = new Date()): Summary {
     const status: Status = spent[key] > budget ? 'over' : ratio >= 0.8 || ahead ? 'warn' : 'ok';
     return { key, label: key === 'misc' ? 'Sonstiges' : CATEGORY_LABELS[key], budget, spent: spent[key], ratio, status };
   });
-  const stillPlanned = sum(budgets.map((b) => Math.max(0, b.budget - b.spent)));
+  // Ist der Monat vorbei, wird nichts mehr ausgegeben
+  const stillPlanned = progress >= 1 ? 0 : sum(budgets.map((b) => Math.max(0, b.budget - b.spent)));
   const skippedLunchDays = month.skippedLunchDates.length;
 
   return {
@@ -141,7 +142,12 @@ export function tips(month: Month, s: Summary): Tip[] {
     });
   }
   const missing = month.skippedLunchGoal - s.skippedLunchDays;
-  if (missing > 0 && s.monthProgress >= 0.5) {
+  if (missing > 0 && s.monthProgress >= 1) {
+    out.push({
+      level: 'info',
+      text: `Diesen Monat ${s.skippedLunchDays} von ${month.skippedLunchGoal} Tagen ohne Mittagessen. Nächsten Monat klappt's besser!`,
+    });
+  } else if (missing > 0 && s.monthProgress >= 0.5) {
     out.push({
       level: 'info',
       text: `Erst ${s.skippedLunchDays} von ${month.skippedLunchGoal} Tagen ohne Mittagessen. Damit sich Claude Pro ausgeht, lass noch ${missing} ${missing === 1 ? 'Tag' : 'Tage'} aus.`,
@@ -194,4 +200,84 @@ export function goals(month: Month, s: Summary, data: AppData): Goal[] {
     done: total >= target,
   });
   return out;
+}
+
+/** Werktage (Mo–Fr) von heute bis Monatsende, heute mitgezählt. */
+export function remainingWeekdays(monthId: string, today: Date): number {
+  const [y, m] = monthId.split('-').map(Number);
+  const progress = monthProgress(monthId, today);
+  if (progress >= 1) return 0;
+  const start = progress === 0 ? 1 : today.getDate();
+  const days = new Date(y, m, 0).getDate();
+  let n = 0;
+  for (let d = start; d <= days; d++) {
+    const wd = new Date(y, m - 1, d).getDay();
+    if (wd !== 0 && wd !== 6) n++;
+  }
+  return n;
+}
+
+export interface DailyFood {
+  left: number;
+  days: number;
+  perDay: number;
+}
+
+/** Wie viel pro Schultag noch fürs Essen bleibt. Schultage werden auf die Werktage begrenzt. */
+export function dailyFood(month: Month, s: Summary, today = new Date()): DailyFood | null {
+  const weekdays = remainingWeekdays(month.id, today);
+  if (weekdays === 0) return null;
+  const food = s.budgets.find((b) => b.key === 'food')!;
+  const left = r2(Math.max(0, food.budget - food.spent));
+  const days = Math.max(1, Math.min(weekdays, month.schoolDays));
+  return { left, days, perDay: r2(left / days) };
+}
+
+const FOOD_PLACES: [string, RegExp][] = [
+  ["McDonald's", /mc ?d|mäc|mec|macc?i|mcdonald/],
+  ['Döner', /döner|doner|dürüm|kebap|kebab/],
+  ['Billa', /billa/],
+  ['Spar', /\bspar\b|eurospar|interspar/],
+  ['Hofer / Lidl / Penny', /hofer|lidl|penny/],
+  ['Bäcker', /bäck|semmel|ströck|anker|backwerk/],
+  ['Pizza', /pizza/],
+  ['Asia / Sushi', /asia|sushi|nudel/],
+  ['Getränke', /red ?bull|monster|cola|kaffee|getränk|starbucks|bubble/],
+];
+
+export interface PlaceStat {
+  place: string;
+  count: number;
+  total: number;
+  avg: number;
+}
+
+export function foodPlaces(months: Month[]): PlaceStat[] {
+  const map = new Map<string, { count: number; total: number }>();
+  for (const e of months.flatMap((m) => m.entries)) {
+    if (e.kind !== 'expense' || e.category !== 'food') continue;
+    const note = e.note.toLowerCase();
+    const place = FOOD_PLACES.find(([, re]) => re.test(note))?.[0] ?? 'Anderes Essen';
+    const cur = map.get(place) ?? { count: 0, total: 0 };
+    map.set(place, { count: cur.count + 1, total: r2(cur.total + e.amount) });
+  }
+  return [...map.entries()]
+    .map(([place, v]) => ({ place, ...v, avg: r2(v.total / v.count) }))
+    .sort((a, b) => b.total - a.total);
+}
+
+export interface MonthHistory {
+  id: string;
+  spent: number; // Fixkosten + Ausgaben
+  saved: number; // aufs Sparbuch (abzüglich Abhebungen)
+}
+
+export function history(months: Month[], count = 6): MonthHistory[] {
+  return [...months]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .slice(-count)
+    .map((m) => {
+      const s = summarize(m);
+      return { id: m.id, spent: r2(s.fixedTotal + s.expensesTotal), saved: s.deposited };
+    });
 }

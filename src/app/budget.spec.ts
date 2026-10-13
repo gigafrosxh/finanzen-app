@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { goals, summarize, tips } from './budget';
+import { dailyFood, goals, summarize, tips } from './budget';
 import { AppData, DEFAULT_SETTINGS, Month } from './models';
 
 function month(overrides: Partial<Month> = {}): Month {
@@ -73,6 +73,24 @@ describe('summarize', () => {
     const g = goals(m, summarize(m), data);
     expect(g.find((x) => x.label.startsWith('Tage ohne'))!.done).toBe(true);
     expect(g.find((x) => x.label === 'Gesamt-Sparziel')!.done).toBe(true);
+  });
+});
+
+describe('vergangener Monat', () => {
+  it('rechnet keine offenen Budgets mehr ab', () => {
+    const m = month({ id: '2026-09' });
+    const s = summarize(m, new Date(2026, 9, 13));
+    expect(s.forecastLeftover).toBe(s.balance);
+    expect(tips(m, s).some((t) => t.text.includes('lass noch'))).toBe(false);
+  });
+});
+
+describe('Tagesbudget', () => {
+  it('teilt das Essensbudget auf die restlichen Schultage', () => {
+    const m = month();
+    const d = dailyFood(m, summarize(m, new Date(2026, 9, 26)), new Date(2026, 9, 26))!;
+    // 26.–30.10.2026 sind 5 Werktage
+    expect(d).toEqual({ left: 60.3, days: 5, perDay: 12.06 });
   });
 });
 

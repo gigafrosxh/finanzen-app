@@ -38,6 +38,7 @@
         <button [class.active]="view() === 'chat'" (click)="show('chat')">Chat</button>
         <button [class.active]="view() === 'calendar'" (click)="show('calendar')">Mittagessen</button>
         <button [class.active]="view() === 'entries'" (click)="show('entries')">Einträge</button>
+        <button [class.active]="view() === 'stats'" (click)="show('stats')">Statistik</button>
       </nav>
     }
 
@@ -57,6 +58,16 @@
                   </div>
                 </div>
 
+                @if (store.closeOffer(); as rest) {
+                  <div class="card close-month">
+                    <div>
+                      <strong>Monatsende 🎉</strong>
+                      <div class="muted small">Dir bleiben {{ eur(rest) }}. Leg sie aufs Sparbuch, dann startest du sauber in den nächsten Monat.</div>
+                    </div>
+                    <button class="primary" (click)="closeMonth()">{{ eur(rest) }} sparen</button>
+                  </div>
+                }
+
                 <h2>Vorschläge</h2>
                 @for (t of store.tips(); track $index) {
                   <div class="tip" [class]="'tip ' + t.level">{{ t.text }}</div>
@@ -72,6 +83,9 @@
                       </div>
                       <div class="bar"><div [class]="'fill ' + b.status" [style.width.%]="percent(b.ratio)"></div></div>
                     </div>
+                  }
+                  @if (store.dailyFood(); as d) {
+                    <div class="daily">🍽️ Heute noch etwa <strong>{{ eur(d.perDay) }}</strong> fürs Essen <span class="muted">({{ eur(d.left) }} für {{ d.days }} Schultage)</span></div>
                   }
                   <div class="bar-legend muted">Monat zu {{ percent(s.monthProgress) }} % vorbei</div>
                 </div>
@@ -132,7 +146,19 @@
                     @if (c.from === 'user') {
                       <div class="msg user"><div class="bubble">{{ c.text }}</div></div>
                     } @else {
-                      <div class="msg app"><span class="avatar">💶</span><div class="text">{{ c.text }}</div></div>
+                      <div class="msg app">
+                        <span class="avatar">💶</span>
+                        <div class="text">
+                          {{ c.text }}
+                          @if (c.chips?.length && $last) {
+                            <div class="chips reply-chips">
+                              @for (chip of c.chips; track chip) {
+                                <button type="button" class="chip" (click)="tapChip(chip)">{{ chip }}</button>
+                              }
+                            </div>
+                          }
+                        </div>
+                      </div>
                     }
                   }
                   <div #chatEnd></div>
@@ -182,25 +208,94 @@
               }
 
               @case ('entries') {
+                <div class="search">
+                  <input type="search" placeholder="Suchen, z. B. Döner" [ngModel]="search()" (ngModelChange)="search.set($event)" />
+                </div>
+                <div class="chips filter-chips">
+                  @for (f of filters; track f[0]) {
+                    <button type="button" class="chip" [class.active]="filter() === f[0]" (click)="filter.set(f[0])">{{ f[1] }}</button>
+                  }
+                </div>
                 @if (sortedEntries().length === 0) {
-                  <p class="muted empty">Noch keine Einträge. Schreib unten z. B. „Döner 7,50“ oder tipp auf ＋.</p>
+                  <p class="muted empty">
+                    @if (search() || filter() !== 'all') {
+                      Keine passenden Einträge.
+                    } @else {
+                      Noch keine Einträge. Schreib unten z. B. „Döner 7,50“ oder tipp auf ＋.
+                    }
+                  </p>
+                } @else if (search() || filter() !== 'all') {
+                  <p class="muted small">{{ sortedEntries().length }} Einträge, zusammen {{ eur(entriesTotal()) }}</p>
                 }
                 <div class="entries">
                   @for (e of sortedEntries(); track e.id) {
                     <div class="entry">
-                      <span class="entry-icon">{{ entryIcon(e) }}</span>
-                      <div class="entry-body">
-                        <div>{{ e.note }}</div>
-                        <div class="muted small">{{ entryLabel(e) }} · {{ fmtDate(e.date) }}</div>
-                      </div>
-                      <strong [class.pos]="e.kind === 'income'" [class.save]="e.kind === 'savings'">
-                        {{ e.kind === 'expense' || e.amount < 0 ? '−' : '+' }}{{ eur(Math.abs(e.amount)) }}
-                      </strong>
-                      <button class="icon-btn small" (click)="store.removeEntry(e.id)" aria-label="Löschen">🗑</button>
+                      <button type="button" class="entry-main" (click)="editEntry(e)">
+                        <span class="entry-icon">{{ entryIcon(e) }}</span>
+                        <span class="entry-body">
+                          <span class="entry-note">{{ e.note }}</span>
+                          <span class="muted small">{{ entryLabel(e) }} · {{ fmtDate(e.date) }}</span>
+                        </span>
+                        <strong [class.pos]="e.kind === 'income'" [class.save]="e.kind === 'savings'">
+                          {{ e.kind === 'expense' || e.amount < 0 ? '−' : '+' }}{{ eur(Math.abs(e.amount)) }}
+                        </strong>
+                      </button>
+                      <button class="icon-btn small" (click)="deleteEntry(e)" aria-label="Löschen">🗑</button>
                     </div>
                   }
                 </div>
                 <button class="link danger" (click)="deleteMonth()">Diesen Monat löschen</button>
+              }
+
+              @case ('stats') {
+                <h2>Ausgaben nach Kategorie</h2>
+                <div class="card">
+                  @for (c of categoryBars(); track c.key) {
+                    <div class="hbar" [title]="c.label + ': ' + eur(c.value)">
+                      <span class="hbar-label">{{ c.icon }} {{ c.label }}</span>
+                      <span class="hbar-track"><span class="hbar-fill" [style.width.%]="c.pct"></span></span>
+                      <span class="hbar-value">{{ eur(c.value) }}</span>
+                    </div>
+                  }
+                  <div class="muted small">Ohne Fixkosten ({{ eur(s.fixedTotal) }})</div>
+                </div>
+
+                <h2>Verlauf</h2>
+                <div class="card">
+                  <div class="legend">
+                    <span><i class="dot spent"></i>Ausgaben inkl. Fixkosten</span>
+                    <span><i class="dot saved"></i>Aufs Sparbuch</span>
+                  </div>
+                  @for (h of historyBars(); track h.id) {
+                    <div class="hist">
+                      <span class="hist-label">{{ monthLabel(h.id) }}</span>
+                      <div class="hist-bars">
+                        <div class="hbar-track" [title]="'Ausgaben: ' + eur(h.spent)">
+                          <span class="hbar-fill spent" [style.width.%]="h.spentPct"></span>
+                        </div>
+                        <span class="hbar-value">{{ eur(h.spent) }}</span>
+                        <div class="hbar-track" [title]="'Gespart: ' + eur(h.saved)">
+                          <span class="hbar-fill saved" [style.width.%]="h.savedPct"></span>
+                        </div>
+                        <span class="hbar-value">{{ eur(h.saved) }}</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+
+                <h2>Wo du isst</h2>
+                <div class="card">
+                  @if (store.foodPlaces().length === 0) {
+                    <div class="muted small">Noch keine Essens-Einträge.</div>
+                  }
+                  @for (pl of store.foodPlaces(); track pl.place) {
+                    <div class="row">
+                      <span>{{ pl.place }} <span class="muted small">{{ pl.count }}× · Ø {{ eur(pl.avg) }}</span></span>
+                      <strong>{{ eur(pl.total) }}</strong>
+                    </div>
+                  }
+                  <div class="muted small">Über alle Monate</div>
+                </div>
               }
 
               @case ('settings') {
@@ -256,9 +351,14 @@
 
     @if (view() !== 'settings') {
       <form class="composer" (ngSubmit)="send()">
+        <div class="quick-chips">
+          @for (chip of store.quickChips(); track chip) {
+            <button type="button" class="chip" (click)="quickChip(chip, msgInput)">{{ chip }}</button>
+          }
+        </div>
         <div class="composer-inner">
           <button type="button" class="icon-btn plus" (click)="openForm()" aria-label="Eintrag mit Formular">＋</button>
-          <input name="message" [(ngModel)]="message" placeholder="Was ist passiert? z. B. Döner 7,50" autocomplete="off" enterkeyhint="send" />
+          <input #msgInput name="message" [(ngModel)]="message" placeholder="Was ist passiert? z. B. Döner 7,50" autocomplete="off" enterkeyhint="send" />
           <button type="submit" class="send" [disabled]="!message.trim()" aria-label="Senden">↑</button>
         </div>
         <div class="hint">Deine Daten bleiben nur auf diesem Gerät.</div>
@@ -268,13 +368,18 @@
 </div>
 
 @if (toast(); as t) {
-  <div class="toast" (click)="toast.set(null)">{{ t }}</div>
+  <div class="toast" (click)="toast.set(null)">
+    <span>{{ t }}</span>
+    @if (toastUndo()) {
+      <button type="button" class="link" (click)="$event.stopPropagation(); undoToast()">Rückgängig</button>
+    }
+  </div>
 }
 
 @if (formOpen()) {
   <div class="modal-backdrop" (click)="formOpen.set(false)">
     <form class="sheet" (click)="$event.stopPropagation()" (ngSubmit)="submitForm()">
-      <h3>Neuer Eintrag</h3>
+      <h3>{{ editingId ? 'Eintrag bearbeiten' : 'Neuer Eintrag' }}</h3>
       <div class="segmented">
         <button type="button" [class.active]="form.kind === 'expense'" (click)="form.kind = 'expense'">Ausgabe</button>
         <button type="button" [class.active]="form.kind === 'income'" (click)="form.kind = 'income'">Bekommen</button>
@@ -293,6 +398,9 @@
       <label>Datum<input name="date" type="date" [(ngModel)]="form.date" /></label>
       <label>Notiz<input name="note" type="text" [(ngModel)]="form.note" placeholder="z. B. Mäcci, Oma, H&M" /></label>
       <div class="actions">
+        @if (editingId) {
+          <button type="button" class="secondary danger-btn" (click)="deleteEditing()">Löschen</button>
+        }
         <button type="button" class="secondary" (click)="formOpen.set(false)">Abbrechen</button>
         <button type="submit" class="primary" [disabled]="!form.amount">Speichern</button>
       </div>

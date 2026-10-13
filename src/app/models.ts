@@ -25,6 +25,7 @@ export interface ChatMessage {
   from: 'user' | 'app';
   text: string;
   at: string;
+  chips?: string[]; // antippbare Vorschläge
 }
 
 export interface Month {
@@ -49,6 +50,7 @@ export interface Settings {
   skippedLunchGoal: number;
   savingsStart: number;
   savingsTarget: number;
+  lastExport?: string; // ISO-Datum der letzten Sicherung
 }
 
 export interface AppData {

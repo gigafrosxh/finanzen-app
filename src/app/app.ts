@@ -6,7 +6,8 @@ import { CATEGORY_ICONS, CATEGORY_LABELS, Entry, EntryKind, ExpenseCategory, Set
 import { isoDate } from './parser';
 import { Store, fmtDate, monthLabel } from './store';
 
-type View = 'overview' | 'chat' | 'calendar' | 'entries' | 'settings';
+type View = 'overview' | 'chat' | 'calendar' | 'entries' | 'stats' | 'settings';
+type EntryFilter = 'all' | ExpenseCategory | 'income' | 'savings';
 
 interface CalendarDay {
   iso: string;
@@ -35,6 +36,20 @@ export class App {
   protected readonly view = signal<View>('overview');
   protected readonly sidebarOpen = signal(false);
   protected readonly toast = signal<string | null>(null);
+  protected readonly toastUndo = signal<(() => void) | null>(null);
+  protected readonly search = signal('');
+  protected readonly filter = signal<EntryFilter>('all');
+  protected readonly filters: [EntryFilter, string][] = [
+    ['all', 'Alle'],
+    ['food', 'Essen'],
+    ['fuel', 'Tanken'],
+    ['clothes', 'Gewand'],
+    ['haircut', 'Friseur'],
+    ['misc', 'Sonstiges'],
+    ['income', 'Einnahmen'],
+    ['savings', 'Sparbuch'],
+  ];
+  protected editingId: string | null = null;
   protected readonly formOpen = signal(false);
   protected readonly planOpen = signal(true);
 
@@ -45,9 +60,32 @@ export class App {
   private readonly chatEnd = viewChild<ElementRef<HTMLElement>>('chatEnd');
   private toastTimer?: ReturnType<typeof setTimeout>;
 
-  protected readonly sortedEntries = computed(() =>
-    [...(this.store.month()?.entries ?? [])].sort((a, b) => b.date.localeCompare(a.date)),
+  protected readonly sortedEntries = computed(() => {
+    const q = this.search().trim().toLowerCase();
+    const f = this.filter();
+    return [...(this.store.month()?.entries ?? [])]
+      .filter((e) => f === 'all' || (f === 'income' || f === 'savings' ? e.kind === f : e.kind === 'expense' && e.category === f))
+      .filter((e) => !q || e.note.toLowerCase().includes(q) || this.entryLabel(e).toLowerCase().includes(q))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  });
+
+  protected readonly entriesTotal = computed(() =>
+    r2(this.sortedEntries().reduce((sum, e) => sum + (e.kind === 'expense' ? -e.amount : e.amount), 0)),
   );
+
+  protected readonly categoryBars = computed(() => {
+    const s = this.store.summary();
+    if (!s) return [];
+    const rows = this.categories.map((c) => ({ key: c, label: CATEGORY_LABELS[c], icon: CATEGORY_ICONS[c], value: s.spentByCategory[c] }));
+    const max = Math.max(1, ...rows.map((r) => r.value));
+    return rows.map((r) => ({ ...r, pct: (r.value / max) * 100 }));
+  });
+
+  protected readonly historyBars = computed(() => {
+    const h = this.store.history();
+    const max = Math.max(1, ...h.flatMap((x) => [x.spent, Math.max(0, x.saved)]));
+    return h.map((x) => ({ ...x, spentPct: (x.spent / max) * 100, savedPct: (Math.max(0, x.saved) / max) * 100 }));
+  });
 
   protected readonly calendar = computed<(CalendarDay | null)[]>(() => {
     const m = this.store.month();
@@ -105,8 +143,44 @@ export class App {
   }
 
   protected newMonth() {
-    this.store.createMonth(this.store.nextMonthId());
+    const id = this.store.nextMonthId();
+    if (!confirm(`${monthLabel(id)} anlegen?`)) return;
+    this.store.createMonth(id);
     this.show('overview');
+  }
+
+  protected closeMonth() {
+    const amount = this.store.closeMonth();
+    if (amount) this.showToast(`${eur(amount)} aufs Sparbuch gelegt. 🎉`);
+  }
+
+  protected tapChip(chip: string) {
+    if (chip === 'Einträge zeigen') return this.show('entries');
+    if (chip === 'Kalender öffnen') return this.show('calendar');
+    this.message = chip;
+    this.send();
+  }
+
+  protected quickChip(chip: string, input: HTMLInputElement) {
+    if (chip === 'Kein Mittag') {
+      this.message = 'heute kein Mittagessen';
+      this.send();
+      return;
+    }
+    this.message = chip + ' ';
+    input.focus();
+  }
+
+  protected deleteEntry(e: Entry) {
+    const removed = this.store.removeEntry(e.id);
+    if (!removed) return;
+    this.showToast(`„${e.note}“ gelöscht.`, () => this.store.restoreEntry(removed.entry, removed.monthId));
+  }
+
+  protected undoToast() {
+    this.toastUndo()?.();
+    this.toast.set(null);
+    this.toastUndo.set(null);
   }
 
   protected deleteMonth() {
@@ -122,10 +196,14 @@ export class App {
     if (this.view() !== 'chat') this.showToast(answer);
   }
 
-  protected showToast(text: string) {
+  protected showToast(text: string, undo: (() => void) | null = null) {
     this.toast.set(text);
+    this.toastUndo.set(undo);
     clearTimeout(this.toastTimer);
-    this.toastTimer = setTimeout(() => this.toast.set(null), 5000);
+    this.toastTimer = setTimeout(() => {
+      this.toast.set(null);
+      this.toastUndo.set(null);
+    }, undo ? 7000 : 5000);
   }
 
   protected emptyForm() {
@@ -139,22 +217,48 @@ export class App {
   }
 
   protected openForm() {
+    this.editingId = null;
     this.form = this.emptyForm();
     this.formOpen.set(true);
+  }
+
+  protected editEntry(e: Entry) {
+    this.editingId = e.id;
+    this.form = {
+      kind: e.kind,
+      category: e.category ?? 'misc',
+      amount: Math.abs(e.amount),
+      date: e.date,
+      note: e.note,
+    };
+    this.formOpen.set(true);
+  }
+
+  protected deleteEditing() {
+    const id = this.editingId;
+    const e = this.store.month()?.entries.find((x) => x.id === id);
+    this.formOpen.set(false);
+    if (e) this.deleteEntry(e);
   }
 
   protected submitForm() {
     const f = this.form;
     if (!f.amount || f.amount <= 0) return;
+    const original = this.editingId ? this.store.month()?.entries.find((x) => x.id === this.editingId) : null;
     const entry: Omit<Entry, 'id'> = {
       date: f.date,
       kind: f.kind,
-      amount: r2(f.amount),
+      amount: r2(f.kind === 'savings' && original && original.amount < 0 ? -f.amount : f.amount),
       note: f.note.trim() || (f.kind === 'expense' ? CATEGORY_LABELS[f.category] : f.kind === 'income' ? 'Einnahme' : 'Sparbuch'),
       ...(f.kind === 'expense' ? { category: f.category } : {}),
     };
-    this.store.addEntry(entry);
     this.formOpen.set(false);
+    if (original) {
+      this.store.updateEntry(original.id, entry);
+      this.showToast(`${entry.note}: geändert.`);
+      return;
+    }
+    this.store.addEntry(entry);
     this.showToast(`${entry.note}: ${eur(entry.amount)} eingetragen.`);
   }
 
@@ -190,12 +294,14 @@ export class App {
 
   protected saveSettings(applyToMonth: boolean) {
     const s = this.settingsDraft;
-    const num = (v: unknown) => this.numberInput(v ?? 0);
-    s.fixedCosts = s.fixedCosts.filter((f) => f.name.trim()).map((f) => ({ name: f.name.trim(), amount: num(f.amount) }));
+    const old = this.store.data().settings;
+    // Leere Felder behalten den alten Wert, statt 0 zu speichern
+    const num = (v: unknown, fallback: number) => (v === null || v === undefined || v === '' ? fallback : this.numberInput(v));
+    s.fixedCosts = s.fixedCosts.filter((f) => f.name.trim()).map((f) => ({ name: f.name.trim(), amount: num(f.amount, 0) }));
     for (const k of ['allowance', 'lunchRate', 'schoolDays', 'skippedLunchGoal', 'savingsStart', 'savingsTarget'] as const) {
-      s[k] = num(s[k]);
+      s[k] = num(s[k], old[k]);
     }
-    for (const k of ['food', 'fuel', 'misc'] as const) s.budgets[k] = num(s.budgets[k]);
+    for (const k of ['food', 'fuel', 'misc'] as const) s.budgets[k] = num(s.budgets[k], old.budgets[k]);
     this.store.saveSettings(structuredClone(s));
     if (applyToMonth) {
       this.store.setFixedCosts(structuredClone(s.fixedCosts));
@@ -203,6 +309,7 @@ export class App {
       this.store.setMonthBudget('fuel', s.budgets.fuel);
       this.store.setMonthBudget('misc', s.budgets.misc);
       this.store.setMonthField('allowance', s.allowance);
+      this.store.setMonthField('lunchRate', s.lunchRate);
       this.store.setMonthField('skippedLunchGoal', s.skippedLunchGoal);
     }
     this.showToast('Einstellungen gespeichert.');
@@ -216,6 +323,8 @@ export class App {
     a.download = `finanzen-sicherung-${isoDate(new Date())}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    this.store.markExported();
+    this.settingsDraft.lastExport = this.store.data().settings.lastExport;
   }
 
   protected async importData(event: Event) {
