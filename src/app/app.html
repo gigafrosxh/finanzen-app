@@ -332,6 +332,18 @@
                 </div>
 
                 <div class="card settings">
+                  <h3>Import aus George</h3>
+                  <p class="muted small">
+                    Exportiere in George deine Umsätze als CSV und lade die Datei hier hoch. Ich schlage für jede Buchung eine Kategorie vor,
+                    überspringe schon Eingetragenes und merke mir deine Korrekturen. Die Datei verlässt dein Gerät nicht.
+                  </p>
+                  <div class="actions">
+                    <button class="secondary" (click)="openImport(false)">🏦 Import aus George</button>
+                    <button class="secondary" (click)="openImport(true)">Mit Export neu einrichten</button>
+                  </div>
+                </div>
+
+                <div class="card settings">
                   <h3>Sicherung und Übertragen</h3>
                   <p class="muted small">
                     Deine Daten bleiben nur auf diesem Gerät. Um sie zwischen iPhone und Mac zu übertragen, exportiere eine Datei
@@ -431,6 +443,112 @@
       <div class="actions">
         <button type="button" class="primary" (click)="releasesOpen.set(false)">Schließen</button>
       </div>
+    </div>
+  </div>
+}
+
+@if (importOpen()) {
+  <div class="modal-backdrop" (click)="importSetup() && store.needsSetup() ? null : closeImport()">
+    <div class="sheet settings import-sheet" (click)="$event.stopPropagation()">
+      @switch (importStep()) {
+        @case ('file') {
+          @if (importSetup()) {
+            <h3>Willkommen 👋</h3>
+            <p class="muted">
+              Lade einen George-Export mit mindestens einem Monat hoch. Daraus lese ich Taschengeld, Abos und deine üblichen Ausgaben
+              und richte die App für dich ein. Danach kannst du alles noch ändern.
+            </p>
+          } @else {
+            <h3>Import aus George</h3>
+          }
+          <p class="muted small">
+            So geht's: In George die Umsätze deines Kontos öffnen, Zeitraum wählen, auf „Exportieren“ tippen und CSV wählen.
+            Die Datei bleibt auf deinem Gerät, gespeichert werden nur Datum, Betrag, Händler und Kategorie.
+          </p>
+          @if (importError(); as err) {
+            <p class="import-error">{{ err }}</p>
+          }
+          <div class="actions">
+            <label class="primary file-btn">📄 Export auswählen<input type="file" accept=".csv,text/csv,text/plain" (change)="importFile($event)" /></label>
+            @if (importSetup() && store.needsSetup()) {
+              <button type="button" class="secondary" (click)="skipSetup()">Ohne Export starten</button>
+            } @else {
+              <button type="button" class="secondary" (click)="closeImport()">Abbrechen</button>
+            }
+          </div>
+        }
+        @case ('setup') {
+          <h3>Das habe ich gefunden</h3>
+          <p class="muted small">
+            Aus {{ setupInfo?.months }} Monaten Kontoauszug. Budgets sind dein bisheriger Durchschnitt pro Monat, setz sie ruhig niedriger.
+          </p>
+          <label>Taschengeld pro Monat (€)<input type="number" step="0.01" inputmode="decimal" [(ngModel)]="setupDraft.allowance" /></label>
+          <label>Essensgeld pro Tag (€)<input type="number" step="0.01" inputmode="decimal" [(ngModel)]="setupDraft.lunchRate" placeholder="z. B. 7,90" /></label>
+          <label>Lange Schultage pro Monat<input type="number" inputmode="numeric" [(ngModel)]="setupDraft.schoolDays" /></label>
+          @if (setupInfo?.lunchPerMonth; as lunch) {
+            <p class="muted small">Laut Konto bekommst du {{ eur(lunch) }} Essensgeld im Monat.</p>
+          }
+          <h3>Fixkosten</h3>
+          @for (f of setupDraft.fixedCosts; track $index; let i = $index) {
+            <div class="fixed-row">
+              <input type="text" placeholder="Name" [(ngModel)]="f.name" />
+              <input type="number" step="0.01" inputmode="decimal" [(ngModel)]="f.amount" />
+              <button class="icon-btn small" (click)="setupDraft.fixedCosts.splice(i, 1)" aria-label="Entfernen">✕</button>
+            </div>
+          }
+          <button class="link" (click)="addSetupFixedCost()">＋ Fixkosten hinzufügen</button>
+          <h3>Budgets pro Monat</h3>
+          <label>Essen (€)<input type="number" step="0.01" inputmode="decimal" [(ngModel)]="setupDraft.budgets.food" /></label>
+          <label>Tanken (€)<input type="number" step="0.01" inputmode="decimal" [(ngModel)]="setupDraft.budgets.fuel" /></label>
+          <label>Sonstiges (€)<input type="number" step="0.01" inputmode="decimal" [(ngModel)]="setupDraft.budgets.misc" /></label>
+          <h3>Sparen</h3>
+          <label>Ziel: Tage ohne Mittagessen<input type="number" inputmode="numeric" [(ngModel)]="setupDraft.skippedLunchGoal" /></label>
+          <label>Aktueller Sparbuch-Stand (€)<input type="number" step="0.01" inputmode="decimal" [(ngModel)]="setupDraft.savingsStart" /></label>
+          <label>Gesamt-Sparziel (€)<input type="number" step="0.01" inputmode="decimal" [(ngModel)]="setupDraft.savingsTarget" /></label>
+          <div class="actions">
+            <button type="button" class="secondary" (click)="importStep.set('file')">Zurück</button>
+            <button type="button" class="primary" (click)="setupContinue()">Weiter zu den Buchungen</button>
+          </div>
+        }
+        @case ('preview') {
+          <h3>Buchungen prüfen</h3>
+          <div class="import-tools">
+            <label class="inline">Ab<input type="date" [ngModel]="importFrom()" (ngModelChange)="importFrom.set($event)" /></label>
+            <button type="button" class="link" (click)="setAllRows(true)">Alle</button>
+            <button type="button" class="link" (click)="setAllRows(false)">Keine</button>
+          </div>
+          @if (visibleImportRows().length === 0) {
+            <p class="muted">Keine neuen Buchungen in diesem Export.</p>
+          }
+          <div class="import-list">
+            @for (r of visibleImportRows(); track r.tx.hash) {
+              <div class="import-row" [class.off]="!r.selected">
+                <input type="checkbox" [checked]="r.selected" [disabled]="r.category === 'skip'" (change)="toggleRow(r)" aria-label="Importieren" />
+                <div class="import-main">
+                  <div class="import-top">
+                    <span class="import-merchant">{{ r.tx.merchant }}</span>
+                    <strong [class.pos]="r.tx.amount > 0">{{ eur(r.tx.amount) }}</strong>
+                  </div>
+                  <div class="import-bottom">
+                    <span class="muted small">{{ fmtDate(r.tx.date) }}@if (r.reason) { · {{ reasonText[r.reason] }}}</span>
+                    <select [ngModel]="r.category" (ngModelChange)="setRowCategory(r, $event)">
+                      @for (c of importCategories; track c[0]) {
+                        <option [value]="c[0]">{{ c[1] }}</option>
+                      }
+                    </select>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+          <div class="actions sticky-actions">
+            <button type="button" class="secondary" (click)="importSetup() ? importStep.set('setup') : closeImport()">{{ importSetup() ? 'Zurück' : 'Abbrechen' }}</button>
+            <button type="button" class="primary" (click)="runImport()">
+              {{ importCount() === 1 ? '1 Buchung' : importCount() + ' Buchungen' }} importieren
+            </button>
+          </div>
+        }
+      }
     </div>
   </div>
 }

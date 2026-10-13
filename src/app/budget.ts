@@ -86,7 +86,8 @@ export function summarize(month: Month, today = new Date()): Summary {
     const budget = month.budgets[key];
     const ratio = budget > 0 ? spent[key] / budget : spent[key] > 0 ? 2 : 0;
     const ahead = ratio - progress > 0.2 && ratio > 0.3;
-    const status: Status = spent[key] > budget ? 'over' : ratio >= 0.8 || ahead ? 'warn' : 'ok';
+    // Budget 0 heißt: (noch) kein Budget festgelegt, dann nicht warnen
+    const status: Status = budget <= 0 ? 'ok' : spent[key] > budget ? 'over' : ratio >= 0.8 || ahead ? 'warn' : 'ok';
     return { key, label: key === 'misc' ? 'Sonstiges' : CATEGORY_LABELS[key], budget, spent: spent[key], ratio, status };
   });
   // Ist der Monat vorbei, wird nichts mehr ausgegeben
@@ -150,7 +151,7 @@ export function tips(month: Month, s: Summary): Tip[] {
   } else if (missing > 0 && s.monthProgress >= 0.5) {
     out.push({
       level: 'info',
-      text: `Erst ${s.skippedLunchDays} von ${month.skippedLunchGoal} Tagen ohne Mittagessen. Damit sich Claude Pro ausgeht, lass noch ${missing} ${missing === 1 ? 'Tag' : 'Tage'} aus.`,
+      text: `Erst ${s.skippedLunchDays} von ${month.skippedLunchGoal} Tagen ohne Mittagessen. Für dein Ziel lass noch ${missing} ${missing === 1 ? 'Tag' : 'Tage'} aus.`,
     });
   }
   if (out.length === 0) {
@@ -173,19 +174,19 @@ export function totalSavings(data: AppData): number {
 }
 
 export function goals(month: Month, s: Summary, data: AppData): Goal[] {
-  const out: Goal[] = s.budgets.map((b) => ({
+  const out: Goal[] = s.budgets.filter((b) => b.budget > 0).map((b) => ({
     label: `${b.label} im Budget`,
     detail: `${eur(b.spent)} von ${eur(b.budget)}`,
     progress: Math.min(1, b.ratio),
     done: b.spent <= b.budget && s.monthProgress >= 1,
   }));
-  out.push({
-    label: 'Tage ohne Mittagessen (Claude Pro)',
+  if (month.skippedLunchGoal > 0) out.push({
+    label: 'Tage ohne Mittagessen',
     detail: `${s.skippedLunchDays} von ${month.skippedLunchGoal} Tagen`,
     progress: month.skippedLunchGoal > 0 ? Math.min(1, s.skippedLunchDays / month.skippedLunchGoal) : 1,
     done: s.skippedLunchDays >= month.skippedLunchGoal,
   });
-  out.push({
+  if (s.plannedSavings > 0) out.push({
     label: 'Monats-Sparziel',
     detail: `${eur(s.deposited)} von ${eur(s.plannedSavings)} aufs Sparbuch gelegt`,
     progress: s.plannedSavings > 0 ? Math.min(1, s.deposited / s.plannedSavings) : 1,
@@ -193,7 +194,7 @@ export function goals(month: Month, s: Summary, data: AppData): Goal[] {
   });
   const total = totalSavings(data);
   const target = data.settings.savingsTarget;
-  out.push({
+  if (target > 0) out.push({
     label: 'Gesamt-Sparziel',
     detail: `${eur(total)} von ${eur(target)} am Sparbuch`,
     progress: target > 0 ? Math.min(1, total / target) : 1,
@@ -228,6 +229,7 @@ export function dailyFood(month: Month, s: Summary, today = new Date()): DailyFo
   const weekdays = remainingWeekdays(month.id, today);
   if (weekdays === 0) return null;
   const food = s.budgets.find((b) => b.key === 'food')!;
+  if (food.budget <= 0) return null;
   const left = r2(Math.max(0, food.budget - food.spent));
   // Lange Schultage gleichmäßig über die Werktage verteilt annehmen
   const allWeekdays = remainingWeekdays(month.id, new Date(Number(month.id.slice(0, 4)), Number(month.id.slice(5)) - 1, 1));

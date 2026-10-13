@@ -1,12 +1,34 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
 import { Tip, dailyFood, eur, foodPlaces, goals, history, r2, summarize, tips, totalSavings } from './budget';
-import { AppData, CATEGORY_LABELS, ChatMessage, DEFAULT_SETTINGS, Entry, ExpenseCategory, Month, Settings } from './models';
+import { AppData, CATEGORY_LABELS, ChatMessage, DEFAULT_SETTINGS, Entry, ExpenseCategory, ImportCategory, Month, Settings } from './models';
 import { HELP_TEXT, ParseResult, SettingKey, detectCategory, isoDate, parseMessages } from './parser';
 
 const KEY = 'finanzen-app-data';
 
 export function monthId(d: Date): string {
   return isoDate(d).slice(0, 7);
+}
+
+function newMonth(id: string, s: Settings): Month {
+  return {
+    id,
+    allowance: s.allowance,
+    lunchRate: s.lunchRate,
+    schoolDays: s.schoolDays,
+    fixedCosts: structuredClone(s.fixedCosts),
+    budgets: { ...s.budgets },
+    skippedLunchGoal: s.skippedLunchGoal,
+    skippedLunchDates: [],
+    entries: [],
+    chat: [
+      {
+        from: 'app',
+        text: 'Neuer Monat angelegt. Schreib mir einfach, was passiert ist, z. B. „Döner 7,50“, „getankt 38“, „Oma 20 geschenkt“ oder „50 aufs Sparbuch“. Du kannst mich auch fragen: „Wie viel hab ich noch?“',
+        at: new Date().toISOString(),
+        chips: ['hilfe', 'Wie viel hab ich noch?'],
+      },
+    ],
+  };
 }
 
 function newId(): string {
@@ -33,9 +55,10 @@ interface Reply {
 }
 
 const DEFAULT_CHIPS = ['Mäcci', 'Döner', 'Billa', 'Getankt'];
-const STOPWORDS = new Set(['ein', 'eine', 'einen', 'der', 'die', 'das', 'den', 'ich', 'hab', 'habe', 'neue', 'neuer', 'neues', 'noch', 'mal']);
+const STOPWORDS = new Set(['überweisung', 'bargeld', 'bareinzahlung', 'ein', 'eine', 'einen', 'der', 'die', 'das', 'den', 'ich', 'hab', 'habe', 'neue', 'neuer', 'neues', 'noch', 'mal']);
 
 function leftText(budget: number, spent: number): string {
+  if (budget <= 0) return `${eur(spent)} ausgegeben, noch kein Budget festgelegt`;
   return spent <= budget ? `noch ${eur(budget - spent)} von ${eur(budget)}` : `${eur(spent - budget)} über dem Budget von ${eur(budget)}`;
 }
 
@@ -71,6 +94,12 @@ export class Store {
   });
   readonly foodPlaces = computed(() => foodPlaces(this.data().months));
   readonly history = computed(() => history(this.data().months));
+
+  /** Erster Start: noch nichts eingetragen und Begrüßung nicht erledigt. */
+  readonly needsSetup = computed(() => {
+    const d = this.data();
+    return !d.settings.setupDone && d.months.every((m) => m.entries.length === 0);
+  });
 
   /** Monatsende: Rest kann mit einem Tipp aufs Sparbuch. */
   readonly closeOffer = computed(() => {
@@ -145,26 +174,7 @@ export class Store {
 
   createMonth(id: string) {
     if (!this.data().months.some((m) => m.id === id)) {
-      const s = this.data().settings;
-      const month: Month = {
-        id,
-        allowance: s.allowance,
-        lunchRate: s.lunchRate,
-        schoolDays: s.schoolDays,
-        fixedCosts: structuredClone(s.fixedCosts),
-        budgets: { ...s.budgets },
-        skippedLunchGoal: s.skippedLunchGoal,
-        skippedLunchDates: [],
-        entries: [],
-        chat: [
-          {
-            from: 'app',
-            text: 'Neuer Monat angelegt. Schreib mir einfach, was passiert ist, z. B. „Döner 7,50“, „getankt 38“, „Oma 20 geschenkt“ oder „50 aufs Sparbuch“. Du kannst mich auch fragen: „Wie viel hab ich noch?“',
-            at: new Date().toISOString(),
-            chips: ['hilfe', 'Wie viel hab ich noch?'],
-          },
-        ],
-      };
+      const month = newMonth(id, this.data().settings);
       this.update((d) => d.months.push(month));
     }
     this.currentId.set(id);
@@ -263,6 +273,44 @@ export class Store {
 
   saveSettings(settings: Settings) {
     this.update((d) => (d.settings = settings));
+  }
+
+  /** Begrüßung abschließen, optional mit Werten aus dem Export (gelten für den aktuellen und neue Monate). */
+  finishSetup(patch: Partial<Settings> = {}) {
+    this.update((d) => {
+      d.settings = { ...d.settings, ...structuredClone(patch), setupDone: true };
+      const m = d.months.find((x) => x.id === this.currentId());
+      if (m && Object.keys(patch).length) {
+        const s = d.settings;
+        Object.assign(m, {
+          allowance: s.allowance,
+          lunchRate: s.lunchRate,
+          schoolDays: s.schoolDays,
+          fixedCosts: structuredClone(s.fixedCosts),
+          budgets: { ...s.budgets },
+          skippedLunchGoal: s.skippedLunchGoal,
+        });
+      }
+    });
+  }
+
+  /** Bankbuchungen übernehmen. Fehlende Monate werden angelegt, ohne den aktuellen zu wechseln. */
+  importBank(entries: Omit<Entry, 'id'>[], hashes: string[], rules: Record<string, ImportCategory>, lastDate: string) {
+    this.update((d) => {
+      for (const e of entries) {
+        const id = e.date.slice(0, 7);
+        let m = d.months.find((x) => x.id === id);
+        if (!m) {
+          m = newMonth(id, d.settings);
+          d.months.push(m);
+        }
+        m.entries.push({ ...e, id: newId() });
+      }
+      const s = d.settings;
+      s.importedHashes = [...new Set([...(s.importedHashes ?? []), ...hashes])];
+      s.importRules = { ...(s.importRules ?? {}), ...rules };
+      if (!s.lastImport || lastDate > s.lastImport) s.lastImport = lastDate;
+    });
   }
 
   markExported() {

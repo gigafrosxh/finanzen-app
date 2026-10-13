@@ -12,6 +12,15 @@ export interface Release {
 /** Neueste Version zuerst. Spiegelt CHANGELOG.md. */
 export const RELEASES: Release[] = [
   {
+    version: '1.4.0',
+    date: '13.10.2026',
+    changes: [
+      'Import aus George: CSV-Export hochladen, Kategorien werden vorgeschlagen, Doppeltes übersprungen, Korrekturen gemerkt',
+      'Beim ersten Start richtet sich die App aus einem George-Export ein (Taschengeld, Abos, Budgets), oder du startest ohne',
+      'Keine vorgegebenen Werte mehr, leere Budgets lösen keine Warnungen aus',
+    ],
+  },
+  {
     version: '1.3.2',
     date: '13.10.2026',
     changes: ['Zoomen mit zwei Fingern und Doppeltipp ist gesperrt'],

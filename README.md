@@ -15,6 +15,11 @@ Danach funktioniert die App auch ohne Internet.
 Einstellungen → „Exportieren“ speichert eine JSON-Datei (z. B. in iCloud Drive oder per AirDrop).
 Auf dem anderen Gerät Einstellungen → „Importieren“.
 
+## Import aus George
+In George die Umsätze öffnen, Zeitraum wählen, „Exportieren“ → CSV. In der App unter Einstellungen → „Import aus George“ die Datei wählen,
+Vorschau prüfen und importieren. Die Datei bleibt am Gerät; gespeichert werden nur Datum, Betrag, Händler und Kategorie.
+Bank-Exporte (`*.csv`) sind per `.gitignore` vom Repo ausgeschlossen, Tests nutzen nur erfundene Buchungen.
+
 ## Eingabe im Chat
 
 Schreib einfach, was passiert ist. Mit „hilfe“ zeigt die App alle Befehle. Sie versteht Tippfehler, Beträge wie „zehn euro“ oder „ein fünfer“ und Datumsangaben wie „gestern“, „am montag“, „am 5.“ oder „vor 3 tagen“.

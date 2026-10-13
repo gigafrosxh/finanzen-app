@@ -973,3 +973,93 @@ input[type='date'] {
     line-height: 1.45;
   }
 }
+
+/* Import aus George */
+.import-sheet {
+  width: min(100%, 600px);
+  h3 {
+    margin: 4px 0 10px;
+  }
+  p {
+    margin: 0 0 12px;
+    line-height: 1.45;
+  }
+}
+.import-error {
+  color: var(--red);
+  font-weight: 600;
+}
+.import-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  .inline {
+    flex-direction: row;
+    align-items: center;
+    margin: 0;
+    flex: 1;
+    input {
+      flex: 1;
+    }
+  }
+}
+.import-list {
+  border-top: 1px solid var(--border);
+}
+.import-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  &.off .import-top {
+    opacity: 0.5;
+  }
+  input[type='checkbox'] {
+    width: 20px;
+    height: 20px;
+    margin-top: 2px;
+    flex: none;
+    accent-color: var(--accent);
+  }
+}
+.import-main {
+  flex: 1;
+  min-width: 0;
+}
+.import-top,
+.import-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.import-top {
+  margin-bottom: 4px;
+  .pos {
+    color: var(--green);
+  }
+}
+.import-merchant {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.import-bottom select {
+  flex: none;
+  max-width: 48%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 6px;
+  font-size: 16px;
+}
+.sticky-actions {
+  position: sticky;
+  bottom: calc(-18px - env(safe-area-inset-bottom));
+  background: var(--sidebar);
+  padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+  margin-bottom: calc(-18px - env(safe-area-inset-bottom));
+}

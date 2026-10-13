@@ -8,6 +8,7 @@ export interface Entry {
   category?: ExpenseCategory; // nur bei Ausgaben
   amount: number;
   note: string;
+  source?: 'george'; // aus einem Bank-Export importiert
 }
 
 export interface FixedCost {
@@ -51,7 +52,14 @@ export interface Settings {
   savingsStart: number;
   savingsTarget: number;
   lastExport?: string; // ISO-Datum der letzten Sicherung
+  setupDone?: boolean; // Begrüßung erledigt (mit oder ohne Export)
+  importRules?: Record<string, ImportCategory>; // Händler → Kategorie, vom Nutzer korrigiert
+  importedHashes?: string[]; // schon importierte Buchungen
+  lastImport?: string; // jüngstes importiertes Buchungsdatum (YYYY-MM-DD)
 }
+
+/** Kategorie einer Bankbuchung beim Import. */
+export type ImportCategory = ExpenseCategory | 'income' | 'savings' | 'skip';
 
 export interface AppData {
   version: 1;
@@ -75,18 +83,14 @@ export const CATEGORY_ICONS: Record<ExpenseCategory, string> = {
   misc: '🧾',
 };
 
+// Keine Vorgaben: alles kommt aus dem George-Export oder wird selbst eingetragen
 export const DEFAULT_SETTINGS: Settings = {
-  allowance: 250,
-  lunchRate: 7.9,
-  schoolDays: 13,
-  fixedCosts: [
-    { name: 'ChatGPT', amount: 23 },
-    { name: 'Snapchat+', amount: 2.99 },
-    { name: 'Claude Pro', amount: 21.6 },
-  ],
-  // Essen: 84 € minus 3 ausgelassene Tage (3 × 7,90 €) für Claude Pro
-  budgets: { food: 60.3, fuel: 45, misc: 116 },
-  skippedLunchGoal: 3,
+  allowance: 0,
+  lunchRate: 0,
+  schoolDays: 0,
+  fixedCosts: [],
+  budgets: { food: 0, fuel: 0, misc: 0 },
+  skippedLunchGoal: 0,
   savingsStart: 0,
-  savingsTarget: 1000,
+  savingsTarget: 0,
 };

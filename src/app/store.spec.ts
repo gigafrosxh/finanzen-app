@@ -1,11 +1,30 @@
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { DEFAULT_SETTINGS } from './models';
 import { Store } from './store';
+
+// Daniels Zahlen als Testgrundlage (die App selbst hat keine Vorgaben mehr)
+const SETTINGS = {
+  ...DEFAULT_SETTINGS,
+  allowance: 250,
+  lunchRate: 7.9,
+  schoolDays: 13,
+  fixedCosts: [
+    { name: 'ChatGPT', amount: 23 },
+    { name: 'Snapchat+', amount: 2.99 },
+    { name: 'Claude Pro', amount: 21.6 },
+  ],
+  budgets: { food: 60.3, fuel: 45, misc: 116 },
+  skippedLunchGoal: 3,
+  savingsTarget: 1000,
+  setupDone: true,
+};
 
 describe('Store / Chat', () => {
   let store: Store;
   beforeEach(() => {
     localStorage.clear();
+    localStorage.setItem('finanzen-app-data', JSON.stringify({ version: 1, settings: SETTINGS, months: [] }));
     TestBed.resetTestingModule();
     store = TestBed.inject(Store);
   });

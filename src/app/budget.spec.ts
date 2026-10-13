@@ -1,9 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { dailyFood, goals, summarize, tips } from './budget';
-import { AppData, DEFAULT_SETTINGS, Month } from './models';
+import { AppData, DEFAULT_SETTINGS, Month, Settings } from './models';
+
+// Daniels Zahlen als Testgrundlage (die App selbst hat keine Vorgaben mehr)
+const SETTINGS: Settings = {
+  ...DEFAULT_SETTINGS,
+  allowance: 250,
+  lunchRate: 7.9,
+  schoolDays: 13,
+  fixedCosts: [
+    { name: 'ChatGPT', amount: 23 },
+    { name: 'Snapchat+', amount: 2.99 },
+    { name: 'Claude Pro', amount: 21.6 },
+  ],
+  budgets: { food: 60.3, fuel: 45, misc: 116 },
+  skippedLunchGoal: 3,
+  savingsTarget: 1000,
+};
 
 function month(overrides: Partial<Month> = {}): Month {
-  const s = DEFAULT_SETTINGS;
+  const s = SETTINGS;
   return {
     id: '2026-10',
     allowance: s.allowance,
@@ -69,7 +85,7 @@ describe('summarize', () => {
 
   it('erkennt erreichte Ziele', () => {
     const m = month({ skippedLunchDates: ['2026-10-01', '2026-10-02', '2026-10-03'] });
-    const data: AppData = { version: 1, settings: { ...DEFAULT_SETTINGS, savingsStart: 1000 }, months: [m] };
+    const data: AppData = { version: 1, settings: { ...SETTINGS, savingsStart: 1000 }, months: [m] };
     const g = goals(m, summarize(m), data);
     expect(g.find((x) => x.label.startsWith('Tage ohne'))!.done).toBe(true);
     expect(g.find((x) => x.label === 'Gesamt-Sparziel')!.done).toBe(true);
