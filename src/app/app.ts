@@ -1,5 +1,6 @@
 import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { SwUpdate } from '@angular/service-worker';
 import { eur, r2 } from './budget';
 import { CATEGORY_ICONS, CATEGORY_LABELS, Entry, EntryKind, ExpenseCategory, Settings } from './models';
 import { isoDate } from './parser';
@@ -72,6 +73,16 @@ export class App {
   });
 
   constructor() {
+    // Neue Version automatisch laden: beim Start und immer wenn die App wieder geöffnet wird
+    const sw = inject(SwUpdate);
+    if (sw.isEnabled) {
+      sw.versionUpdates.subscribe((e) => {
+        if (e.type === 'VERSION_READY') document.location.reload();
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') sw.checkForUpdate().catch(() => {});
+      });
+    }
     effect(() => {
       // Chat beim Öffnen oder bei neuer Nachricht nach unten scrollen
       this.store.month()?.chat.length;
