@@ -44,10 +44,5 @@ jobs:
             notes "$1" > notes.md
             gh release create "v$1" --target "$2" --title "v$1" --notes-file notes.md $3 && echo "v$1 angelegt"
           }
-          # Aktuelle Version zuerst
           release "$VERSION" "$GITHUB_SHA" "--latest"
-          # Ältere Versionen einmalig nachtragen (Fehler hier stoppen nichts)
-          grep -v '^#' .github/release-history.txt | while read -r v sha; do
-            [ -n "$v" ] && [ "$v" != "$VERSION" ] && { release "$v" "$sha" "--latest=false" || echo "::warning::v$v konnte nicht angelegt werden"; }
-          done
           true

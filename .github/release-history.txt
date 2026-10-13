@@ -1,7 +1,0 @@
-# Ältere Versionen und ihr Commit. Neue Versionen kommen automatisch aus package.json.
-1.0.0 2cb7cc28deecbcc44681f1686457c846526c30c1
-1.0.1 43ac0e8127a5280f0c784061a67648fba9eff72d
-1.1.0 06e1fbeca905b0a99c6bad17a07fee869ec07d0f
-1.1.1 786fc9204b696d7c047b03e1e63a43978e5a7521
-1.2.0 4dd58a1e67d1c23fc2da5e12294e4a9093a70b2d
-1.2.1 1f79b20c6ed6b44f63837c6f8f8ab55da1b2a2b0
