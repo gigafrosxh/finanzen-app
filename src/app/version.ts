@@ -12,6 +12,11 @@ export interface Release {
 /** Neueste Version zuerst. Spiegelt CHANGELOG.md. */
 export const RELEASES: Release[] = [
   {
+    version: '1.3.2',
+    date: '13.10.2026',
+    changes: ['Zoomen mit zwei Fingern und Doppeltipp ist gesperrt'],
+  },
+  {
     version: '1.3.1',
     date: '13.10.2026',
     changes: ['iPhone-Home-Bildschirm: App füllt jetzt den ganzen Bildschirm, kein leerer Streifen unten'],

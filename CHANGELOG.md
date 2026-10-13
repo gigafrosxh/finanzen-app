@@ -5,6 +5,9 @@ Die Liste in der App steht in `src/app/version.ts`, die Versionsnummer in `packa
 
 **So kommt eine neue Version raus:** Version in `package.json` erhöhen, Eintrag hier und in `src/app/version.ts` ergänzen, auf `main` pushen. GitHub Actions testet, veröffentlicht die App und legt automatisch das Release `vX.Y.Z` mit diesen Notizen an. Fehlt der Eintrag hier, schlägt der Build fehl.
 
+## 1.3.2 (13.10.2026)
+- Zoomen mit zwei Fingern und Doppeltipp ist gesperrt
+
 ## 1.3.1 (13.10.2026)
 - iPhone-Home-Bildschirm: App füllt jetzt den ganzen Bildschirm, kein leerer Streifen unten
 
