@@ -1,6 +1,6 @@
 {
   "configVersion": 1,
-  "timestamp": 1791922490578,
+  "timestamp": 1791922636834,
   "index": "/finanzen-app/index.html",
   "assetGroups": [
     {
@@ -12,9 +12,9 @@
       },
       "urls": [
         "/finanzen-app/index.html",
-        "/finanzen-app/main-PCJ6XK44.js",
+        "/finanzen-app/main-INVV27KD.js",
         "/finanzen-app/manifest.webmanifest",
-        "/finanzen-app/styles-4ZY3ICJP.css"
+        "/finanzen-app/styles-B42VSN7F.css"
       ],
       "patterns": []
     },
@@ -50,10 +50,10 @@
     "/finanzen-app/icons/icon-512x512.png": "e29a2578a8b05981f5c50ab6690ed1b8917aa0fd",
     "/finanzen-app/icons/icon-72x72.png": "49e53a38ca9bc77a850fb90d79b976caef94d700",
     "/finanzen-app/icons/icon-96x96.png": "d4d554064baa638115fa53b6fc5eb2b1fa085b3b",
-    "/finanzen-app/index.html": "a0c961f53688ccd2b1a15ea501fd2a5b4e5d3ec7",
-    "/finanzen-app/main-PCJ6XK44.js": "4c822f8dbde8a58a3cfc23a83ff913c433211030",
+    "/finanzen-app/index.html": "0ba4ef520356e539c8a2c4105bb64e5304bb32d4",
+    "/finanzen-app/main-INVV27KD.js": "eb81dbce866c626403c5e5aea61d63bdea09aac0",
     "/finanzen-app/manifest.webmanifest": "73b6369a09b64e45fb612c32d808e3151109ba94",
-    "/finanzen-app/styles-4ZY3ICJP.css": "f621d3e4eb971c86745ce5e89215b5b5c1fc4224"
+    "/finanzen-app/styles-B42VSN7F.css": "0c5775fbbfe8344196a577dea21e1986544a9ce0"
   },
   "navigationUrls": [
     {
