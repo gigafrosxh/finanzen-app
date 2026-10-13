@@ -12,6 +12,11 @@ export interface Release {
 /** Neueste Version zuerst. Spiegelt CHANGELOG.md. */
 export const RELEASES: Release[] = [
   {
+    version: '1.3.1',
+    date: '13.10.2026',
+    changes: ['iPhone-Home-Bildschirm: App füllt jetzt den ganzen Bildschirm, kein leerer Streifen unten'],
+  },
+  {
     version: '1.3.0',
     date: '13.10.2026',
     changes: ['Jede Version wird automatisch als GitHub-Release veröffentlicht', 'Chat-Leiste sitzt am iPhone tiefer'],

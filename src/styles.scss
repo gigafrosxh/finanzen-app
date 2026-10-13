@@ -83,7 +83,7 @@ button {
 /* Layout */
 .shell {
   display: flex;
-  height: 100dvh;
+  height: var(--app-height, 100dvh);
   overflow: hidden;
 }
 
@@ -734,7 +734,9 @@ input[type='date'] {
   }
   .sidebar {
     position: fixed;
-    inset: 0 auto 0 0;
+    top: 0;
+    left: 0;
+    height: var(--app-height, 100dvh);
     z-index: 30;
     width: 82vw;
     max-width: 300px;
@@ -747,7 +749,10 @@ input[type='date'] {
   .shell.sidebar-open .backdrop {
     display: block;
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--app-height, 100dvh);
     background: rgba(0, 0, 0, 0.5);
     z-index: 20;
   }
