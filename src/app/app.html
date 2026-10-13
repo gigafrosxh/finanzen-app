@@ -1,0 +1,301 @@
+<div class="shell" [class.sidebar-open]="sidebarOpen()">
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <span class="brand">💶 Finanzen</span>
+      <button class="icon-btn only-mobile" (click)="sidebarOpen.set(false)" aria-label="Schließen">✕</button>
+    </div>
+    <button class="new-month" (click)="newMonth()"><span>＋</span> Neuer Monat</button>
+
+    <div class="section-label">Monate</div>
+    <nav class="month-list">
+      @for (m of store.months(); track m.id) {
+        <button class="month-item" [class.active]="m.id === store.currentId()" (click)="selectMonth(m.id)">
+          {{ monthLabel(m.id) }}
+        </button>
+      }
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="savings-total">
+        <span>Sparbuch gesamt</span>
+        <strong>{{ eur(store.totalSavings()) }}</strong>
+      </div>
+      <button class="month-item" [class.active]="view() === 'settings'" (click)="show('settings')">⚙️ Einstellungen</button>
+    </div>
+  </aside>
+  <div class="backdrop" (click)="sidebarOpen.set(false)"></div>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="icon-btn only-mobile" (click)="sidebarOpen.set(true)" aria-label="Menü">☰</button>
+      <h1>{{ view() === 'settings' ? 'Einstellungen' : monthLabel(store.currentId()) }}</h1>
+      <button class="icon-btn only-mobile" (click)="newMonth()" aria-label="Neuer Monat">✎</button>
+    </header>
+
+    @if (view() !== 'settings') {
+      <nav class="tabs">
+        <button [class.active]="view() === 'overview'" (click)="show('overview')">Übersicht</button>
+        <button [class.active]="view() === 'chat'" (click)="show('chat')">Chat</button>
+        <button [class.active]="view() === 'calendar'" (click)="show('calendar')">Mittagessen</button>
+        <button [class.active]="view() === 'entries'" (click)="show('entries')">Einträge</button>
+      </nav>
+    }
+
+    <section class="content">
+      <div class="column">
+        @if (store.month(); as m) {
+          @if (store.summary(); as s) {
+            @switch (view()) {
+              @case ('overview') {
+                <div class="card hero">
+                  <div class="muted">Gerade übrig</div>
+                  <div class="big" [class.neg]="s.balance < 0">{{ eur(s.balance) }}</div>
+                  <div class="hero-row">
+                    <div><span class="muted">Einnahmen</span><strong>{{ eur(s.incomeTotal) }}</strong></div>
+                    <div><span class="muted">Ausgaben</span><strong>{{ eur(s.fixedTotal + s.expensesTotal) }}</strong></div>
+                    <div><span class="muted">Aufs Sparbuch</span><strong>{{ eur(s.deposited) }}</strong></div>
+                  </div>
+                </div>
+
+                <h2>Vorschläge</h2>
+                @for (t of store.tips(); track $index) {
+                  <div class="tip" [class]="'tip ' + t.level">{{ t.text }}</div>
+                }
+
+                <h2>Budgets</h2>
+                <div class="card">
+                  @for (b of s.budgets; track b.key) {
+                    <div class="budget">
+                      <div class="budget-head">
+                        <span>{{ b.label }}</span>
+                        <span><strong>{{ eur(b.spent) }}</strong> <span class="muted">/ {{ eur(b.budget) }}</span></span>
+                      </div>
+                      <div class="bar"><div [class]="'fill ' + b.status" [style.width.%]="percent(b.ratio)"></div></div>
+                    </div>
+                  }
+                  <div class="bar-legend muted">Monat zu {{ percent(s.monthProgress) }} % vorbei</div>
+                </div>
+
+                <h2 class="toggle" (click)="planOpen.set(!planOpen())">Monatsplan <span>{{ planOpen() ? '▾' : '▸' }}</span></h2>
+                @if (planOpen()) {
+                  <div class="card plan">
+                    <div class="row"><span>Taschengeld</span><span>{{ eur(m.allowance) }}</span></div>
+                    <div class="row">
+                      <span>
+                        Essensgeld
+                        <span class="stepper">
+                          <button (click)="changeSchoolDays(-1)" aria-label="Weniger Schultage">−</button>
+                          {{ m.schoolDays }}
+                          <button (click)="changeSchoolDays(1)" aria-label="Mehr Schultage">+</button>
+                        </span>
+                        <span class="muted">× {{ eur(m.lunchRate) }}</span>
+                      </span>
+                      <span>{{ eur(s.lunchMoney) }}</span>
+                    </div>
+                    @if (s.extraIncome > 0) {
+                      <div class="row"><span>Geschenkt / bekommen</span><span>{{ eur(s.extraIncome) }}</span></div>
+                    }
+                    <div class="row total"><span>Einnahmen</span><span>{{ eur(s.incomeTotal) }}</span></div>
+                    @for (f of m.fixedCosts; track $index) {
+                      <div class="row"><span>{{ f.name }} <span class="badge">fix</span></span><span class="neg">−{{ eur(f.amount) }}</span></div>
+                    }
+                    @for (b of s.budgets; track b.key) {
+                      <div class="row"><span>{{ b.label }} <span class="badge">Budget</span></span><span class="neg">−{{ eur(b.budget) }}</span></div>
+                    }
+                    <div class="row total"><span>Geplant aufs Sparbuch</span><span class="pos">{{ eur(s.plannedSavings + s.extraIncome) }}</span></div>
+                    <div class="row"><span>Wirklich aufs Sparbuch gelegt</span><span>{{ eur(s.deposited) }}</span></div>
+                    <div class="row">
+                      <span>Voraussichtlich am Monatsende übrig</span>
+                      <span [class.neg]="s.forecastLeftover < 0" [class.pos]="s.forecastLeftover > 0">{{ eur(s.forecastLeftover) }}</span>
+                    </div>
+                  </div>
+                }
+
+                <h2>Ziele</h2>
+                <div class="card">
+                  @for (g of store.goals(); track g.label) {
+                    <div class="goal">
+                      <span class="goal-icon">{{ g.done ? '🏆' : '🎯' }}</span>
+                      <div class="goal-body">
+                        <div class="goal-head"><strong>{{ g.label }}</strong>@if (g.done) {<span class="badge good">erreicht</span>}</div>
+                        <div class="muted small">{{ g.detail }}</div>
+                        <div class="bar thin"><div class="fill" [class.ok]="g.done" [style.width.%]="percent(g.progress)"></div></div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+
+              @case ('chat') {
+                <div class="chat">
+                  @for (c of m.chat; track $index) {
+                    @if (c.from === 'user') {
+                      <div class="msg user"><div class="bubble">{{ c.text }}</div></div>
+                    } @else {
+                      <div class="msg app"><span class="avatar">💶</span><div class="text">{{ c.text }}</div></div>
+                    }
+                  }
+                  <div #chatEnd></div>
+                </div>
+              }
+
+              @case ('calendar') {
+                <div class="card">
+                  <div class="row">
+                    <span>Lange Schultage (mit Essensgeld)</span>
+                    <span class="stepper">
+                      <button (click)="changeSchoolDays(-1)" aria-label="Weniger Schultage">−</button>
+                      {{ m.schoolDays }}
+                      <button (click)="changeSchoolDays(1)" aria-label="Mehr Schultage">+</button>
+                    </span>
+                  </div>
+                  <div class="row"><span>Essensgeld</span><span>{{ eur(s.lunchMoney) }}</span></div>
+                </div>
+                <p class="muted small">Tipp einen Tag an, an dem du nicht zu Mittag gegessen hast.</p>
+                <div class="calendar">
+                  @for (w of weekdays; track w) {
+                    <div class="wd">{{ w }}</div>
+                  }
+                  @for (d of calendar(); track $index) {
+                    @if (d) {
+                      <button
+                        class="day"
+                        [class.weekend]="d.weekend"
+                        [class.skipped]="d.skipped"
+                        [class.today]="d.today"
+                        (click)="store.toggleSkippedLunch(d.iso)"
+                      >
+                        {{ d.day }}
+                        @if (d.skipped) {
+                          <span class="mark">✓</span>
+                        }
+                      </button>
+                    } @else {
+                      <div></div>
+                    }
+                  }
+                </div>
+                <div class="card">
+                  <div class="row"><span>Tage ohne Mittagessen</span><strong>{{ s.skippedLunchDays }} / {{ m.skippedLunchGoal }}</strong></div>
+                  <div class="row"><span>Dadurch gespart</span><strong class="pos">{{ eur(s.skippedLunchSaved) }}</strong></div>
+                </div>
+              }
+
+              @case ('entries') {
+                @if (sortedEntries().length === 0) {
+                  <p class="muted empty">Noch keine Einträge. Schreib unten z. B. „Döner 7,50“ oder tipp auf ＋.</p>
+                }
+                <div class="entries">
+                  @for (e of sortedEntries(); track e.id) {
+                    <div class="entry">
+                      <span class="entry-icon">{{ entryIcon(e) }}</span>
+                      <div class="entry-body">
+                        <div>{{ e.note }}</div>
+                        <div class="muted small">{{ entryLabel(e) }} · {{ fmtDate(e.date) }}</div>
+                      </div>
+                      <strong [class.pos]="e.kind === 'income'" [class.save]="e.kind === 'savings'">
+                        {{ e.kind === 'expense' ? '−' : '+' }}{{ eur(e.amount) }}
+                      </strong>
+                      <button class="icon-btn small" (click)="store.removeEntry(e.id)" aria-label="Löschen">🗑</button>
+                    </div>
+                  }
+                </div>
+                <button class="link danger" (click)="deleteMonth()">Diesen Monat löschen</button>
+              }
+
+              @case ('settings') {
+                <div class="card settings">
+                  <h3>Einnahmen</h3>
+                  <label>Taschengeld pro Monat (€)<input type="number" step="0.01" inputmode="decimal" [(ngModel)]="settingsDraft.allowance" /></label>
+                  <label>Essensgeld pro Tag (€)<input type="number" step="0.01" inputmode="decimal" [(ngModel)]="settingsDraft.lunchRate" /></label>
+                  <label>Lange Schultage (Standard)<input type="number" inputmode="numeric" [(ngModel)]="settingsDraft.schoolDays" /></label>
+
+                  <h3>Fixkosten</h3>
+                  @for (f of settingsDraft.fixedCosts; track $index; let i = $index) {
+                    <div class="fixed-row">
+                      <input type="text" placeholder="Name" [(ngModel)]="f.name" />
+                      <input type="number" step="0.01" inputmode="decimal" [(ngModel)]="f.amount" />
+                      <button class="icon-btn small" (click)="removeFixedCost(i)" aria-label="Entfernen">✕</button>
+                    </div>
+                  }
+                  <button class="link" (click)="addFixedCost()">＋ Fixkosten hinzufügen</button>
+
+                  <h3>Budgets pro Monat</h3>
+                  <label>Essen (€)<input type="number" step="0.01" inputmode="decimal" [(ngModel)]="settingsDraft.budgets.food" /></label>
+                  <label>Tanken (€)<input type="number" step="0.01" inputmode="decimal" [(ngModel)]="settingsDraft.budgets.fuel" /></label>
+                  <label>Sonstiges inkl. Gewand und Friseur (€)<input type="number" step="0.01" inputmode="decimal" [(ngModel)]="settingsDraft.budgets.misc" /></label>
+                  <label>Ziel: Tage ohne Mittagessen<input type="number" inputmode="numeric" [(ngModel)]="settingsDraft.skippedLunchGoal" /></label>
+
+                  <h3>Sparbuch</h3>
+                  <label>Stand vor Beginn der App (€)<input type="number" step="0.01" inputmode="decimal" [(ngModel)]="settingsDraft.savingsStart" /></label>
+                  <label>Gesamt-Sparziel (€)<input type="number" step="0.01" inputmode="decimal" [(ngModel)]="settingsDraft.savingsTarget" /></label>
+
+                  <div class="actions">
+                    <button class="primary" (click)="saveSettings(true)">Speichern und für {{ monthLabel(store.currentId()) }} übernehmen</button>
+                    <button class="secondary" (click)="saveSettings(false)">Nur für neue Monate speichern</button>
+                  </div>
+                </div>
+
+                <div class="card settings">
+                  <h3>Sicherung und Übertragen</h3>
+                  <p class="muted small">
+                    Deine Daten bleiben nur auf diesem Gerät. Um sie zwischen iPhone und Mac zu übertragen, exportiere eine Datei
+                    (z. B. in iCloud Drive oder per AirDrop) und importiere sie auf dem anderen Gerät.
+                  </p>
+                  <div class="actions">
+                    <button class="secondary" (click)="exportData()">⬇︎ Exportieren</button>
+                    <label class="secondary file-btn">⬆︎ Importieren<input type="file" accept="application/json,.json" (change)="importData($event)" /></label>
+                  </div>
+                </div>
+              }
+            }
+          }
+        }
+      </div>
+    </section>
+
+    @if (view() !== 'settings') {
+      <form class="composer" (ngSubmit)="send()">
+        <div class="composer-inner">
+          <button type="button" class="icon-btn plus" (click)="openForm()" aria-label="Eintrag mit Formular">＋</button>
+          <input name="message" [(ngModel)]="message" placeholder="Was ist passiert? z. B. Döner 7,50" autocomplete="off" enterkeyhint="send" />
+          <button type="submit" class="send" [disabled]="!message.trim()" aria-label="Senden">↑</button>
+        </div>
+        <div class="hint">Deine Daten bleiben nur auf diesem Gerät.</div>
+      </form>
+    }
+  </main>
+</div>
+
+@if (toast(); as t) {
+  <div class="toast" (click)="toast.set(null)">{{ t }}</div>
+}
+
+@if (formOpen()) {
+  <div class="modal-backdrop" (click)="formOpen.set(false)">
+    <form class="sheet" (click)="$event.stopPropagation()" (ngSubmit)="submitForm()">
+      <h3>Neuer Eintrag</h3>
+      <div class="segmented">
+        <button type="button" [class.active]="form.kind === 'expense'" (click)="form.kind = 'expense'">Ausgabe</button>
+        <button type="button" [class.active]="form.kind === 'income'" (click)="form.kind = 'income'">Bekommen</button>
+        <button type="button" [class.active]="form.kind === 'savings'" (click)="form.kind = 'savings'">Sparbuch</button>
+      </div>
+      @if (form.kind === 'expense') {
+        <div class="chips">
+          @for (c of categories; track c) {
+            <button type="button" class="chip" [class.active]="form.category === c" (click)="form.category = c">
+              {{ categoryIcons[c] }} {{ categoryLabels[c] }}
+            </button>
+          }
+        </div>
+      }
+      <label>Betrag (€)<input name="amount" type="number" step="0.01" inputmode="decimal" [(ngModel)]="form.amount" required /></label>
+      <label>Datum<input name="date" type="date" [(ngModel)]="form.date" /></label>
+      <label>Notiz<input name="note" type="text" [(ngModel)]="form.note" placeholder="z. B. Mäcci, Oma, H&M" /></label>
+      <div class="actions">
+        <button type="button" class="secondary" (click)="formOpen.set(false)">Abbrechen</button>
+        <button type="submit" class="primary" [disabled]="!form.amount">Speichern</button>
+      </div>
+    </form>
+  </div>
+}
