@@ -34,19 +34,20 @@ jobs:
           publish_dir: dist/finanzen-app/browser
 
       - name: GitHub-Releases anlegen
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           notes() { awk -v v="$1" '$0 ~ "^## "v" " {f=1; next} /^## / {f=0} f' CHANGELOG.md; }
           release() {
-            if gh release view "v$1" >/dev/null 2>&1; then echo "v$1 gibt es schon"; return; fi
+            if gh release view "v$1" >/dev/null 2>&1; then echo "v$1 gibt es schon"; return 0; fi
             notes "$1" > notes.md
-            gh release create "v$1" --target "$2" --title "v$1" --notes-file notes.md $3
-            echo "v$1 angelegt"
+            gh release create "v$1" --target "$2" --title "v$1" --notes-file notes.md $3 && echo "v$1 angelegt"
           }
-          # Ältere Versionen einmalig nachtragen
-          grep -v '^#' .github/release-history.txt | while read -r v sha; do
-            [ -n "$v" ] && [ "$v" != "$VERSION" ] && release "$v" "$sha" "--latest=false"
-          done
-          # Aktuelle Version
+          # Aktuelle Version zuerst
           release "$VERSION" "$GITHUB_SHA" "--latest"
+          # Ältere Versionen einmalig nachtragen (Fehler hier stoppen nichts)
+          grep -v '^#' .github/release-history.txt | while read -r v sha; do
+            [ -n "$v" ] && [ "$v" != "$VERSION" ] && { release "$v" "$sha" "--latest=false" || echo "::warning::v$v konnte nicht angelegt werden"; }
+          done
+          true
