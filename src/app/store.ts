@@ -1,7 +1,7 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
 import { eur, goals, summarize, tips, totalSavings } from './budget';
-import { AppData, CATEGORY_LABELS, DEFAULT_SETTINGS, Entry, Month, Settings } from './models';
-import { isoDate, parseMessage } from './parser';
+import { AppData, CATEGORY_LABELS, DEFAULT_SETTINGS, Entry, ExpenseCategory, Month, Settings } from './models';
+import { HELP_TEXT, ParseResult, isoDate, parseMessages } from './parser';
 
 const KEY = 'finanzen-app-data';
 
@@ -91,7 +91,7 @@ export class Store {
         chat: [
           {
             from: 'app',
-            text: 'Neuer Monat angelegt. Schreib mir einfach, was passiert ist, z. B. „Döner 7,50“, „tanken 38“, „gestern kein Mittagessen“, „Oma 20 geschenkt“ oder „50 aufs Sparbuch“.',
+            text: 'Neuer Monat angelegt. Schreib mir einfach, was passiert ist, z. B. „Döner 7,50“, „getankt 38“, „Oma 20 geschenkt“ oder „50 aufs Sparbuch“. Mit „hilfe“ siehst du alle Befehle.',
             at: new Date().toISOString(),
           },
         ],
@@ -156,44 +156,20 @@ export class Store {
     if (!month) return '';
     const today = new Date();
     const ref = monthId(today) === month.id ? today : new Date(Number(month.id.slice(0, 4)), Number(month.id.slice(5)) - 1, 1);
-    const r = parseMessage(text, ref);
-    let answer: string;
-    switch (r.type) {
-      case 'skipLunch':
-        if (month.skippedLunchDates.includes(r.date)) {
-          answer = `Der ${fmtDate(r.date)} ist schon als Tag ohne Mittagessen eingetragen.`;
-        } else {
-          this.toggleSkippedLunch(r.date);
-          const n = month.skippedLunchDates.length + 1;
-          answer = `Eingetragen: ${fmtDate(r.date)} ohne Mittagessen. Das sind ${n} von ${month.skippedLunchGoal} Tagen, ${eur(n * month.lunchRate)} gespart.`;
-        }
-        break;
-      case 'schoolDays':
-        this.setMonthField('schoolDays', r.days);
-        answer = `${r.days} lange Schultage gespeichert. Essensgeld diesen Monat: ${eur(r.days * month.lunchRate)}.`;
-        break;
-      case 'entry': {
-        this.addEntry(r.entry);
-        const e = r.entry;
-        const what =
-          e.kind === 'income' ? 'Einnahme' : e.kind === 'savings' ? 'Aufs Sparbuch' : CATEGORY_LABELS[e.category ?? 'misc'];
-        answer = `${what}: ${eur(e.amount)} am ${fmtDate(e.date)} eingetragen.`;
-        const s = this.summary();
-        if (s) {
-          if (e.kind === 'expense') {
-            const key = e.category === 'food' || e.category === 'fuel' ? e.category : 'misc';
-            const b = s.budgets.find((x) => x.key === key)!;
-            answer += ` ${b.label}: noch ${eur(b.budget - b.spent)} von ${eur(b.budget)}.`;
-            const warning = this.tips().find((t) => t.text.startsWith(b.label + ':'));
-            if (warning) answer += `\n\n⚠️ ${warning.text}`;
-          }
-          if (s.balance < 0) answer += `\n\n⚠️ ${this.tips()[0].text}`;
-        }
-        break;
+    const results = parseMessages(text, ref);
+    const answers = results.map((r) => this.apply(r));
+    let answer = answers.join(results.length > 1 ? '\n' : '');
+    const s = this.summary();
+    const touched = results.flatMap((r) => (r.type === 'entry' && r.entry.kind === 'expense' ? [budgetKey(r.entry.category)] : []));
+    if (s) {
+      if (results.length > 1) answer = `${results.length} Einträge:\n` + answers.map((a) => `• ${a}`).join('\n');
+      for (const key of new Set(touched)) {
+        const b = s.budgets.find((x) => x.key === key)!;
+        answer += `\n${b.label}: noch ${eur(b.budget - b.spent)} von ${eur(b.budget)}.`;
+        const warning = this.tips().find((t) => t.text.startsWith(b.label + ':'));
+        if (warning) answer += `\n\n⚠️ ${warning.text}`;
       }
-      default:
-        answer =
-          'Das hab ich nicht verstanden. Schreib einen Betrag dazu, z. B. „Mäcci 9,80“, „Gewand 35“, „Friseur 15“, „Oma 20 geschenkt“, „50 aufs Sparbuch“, „11 Schultage“ oder „heute kein Mittagessen“.';
+      if (s.balance < 0 && results.some((r) => r.type === 'entry')) answer += `\n\n⚠️ ${this.tips()[0].text}`;
     }
     this.updateMonth((m) => {
       const at = new Date().toISOString();
@@ -201,6 +177,38 @@ export class Store {
       m.chat = m.chat.slice(-200);
     });
     return answer;
+  }
+
+  private apply(r: ParseResult): string {
+    const month = this.month()!;
+    switch (r.type) {
+      case 'help':
+        return HELP_TEXT;
+      case 'undo': {
+        const last = month.entries.at(-1);
+        if (!last) return 'Es gibt diesen Monat noch keinen Eintrag zum Löschen.';
+        this.removeEntry(last.id);
+        return `Gelöscht: „${last.note}“ (${eur(Math.abs(last.amount))}).`;
+      }
+      case 'skipLunch': {
+        if (month.skippedLunchDates.includes(r.date)) return `Der ${fmtDate(r.date)} ist schon als Tag ohne Mittagessen eingetragen.`;
+        this.toggleSkippedLunch(r.date);
+        const n = month.skippedLunchDates.length + 1;
+        return `${fmtDate(r.date)} ohne Mittagessen eingetragen. Das sind ${n} von ${month.skippedLunchGoal} Tagen, ${eur(n * month.lunchRate)} gespart.`;
+      }
+      case 'schoolDays':
+        this.setMonthField('schoolDays', r.days);
+        return `${r.days} lange Schultage gespeichert. Essensgeld diesen Monat: ${eur(r.days * month.lunchRate)}.`;
+      case 'entry': {
+        this.addEntry(r.entry);
+        const e = r.entry;
+        if (e.kind === 'savings' && e.amount < 0) return `${eur(-e.amount)} am ${fmtDate(e.date)} vom Sparbuch abgehoben.`;
+        const what = e.kind === 'income' ? 'Einnahme' : e.kind === 'savings' ? 'Aufs Sparbuch' : CATEGORY_LABELS[e.category ?? 'misc'];
+        return `${what}: ${eur(e.amount)} am ${fmtDate(e.date)} eingetragen.`;
+      }
+      default:
+        return 'Das hab ich nicht verstanden. Schreib einen Betrag dazu, z. B. „Döner 7,50“ oder „Oma 20 geschenkt“. Mit „hilfe“ siehst du alle Befehle.';
+    }
   }
 
   exportJson(): string {
@@ -216,6 +224,10 @@ export class Store {
     if (first) this.currentId.set(first.id);
     else this.createMonth(monthId(new Date()));
   }
+}
+
+function budgetKey(c?: ExpenseCategory): 'food' | 'fuel' | 'misc' {
+  return c === 'food' || c === 'fuel' ? c : 'misc';
 }
 
 export function fmtDate(iso: string): string {

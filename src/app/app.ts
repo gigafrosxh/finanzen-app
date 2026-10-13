@@ -23,6 +23,7 @@ interface CalendarDay {
 export class App {
   protected readonly store = inject(Store);
   protected readonly eur = eur;
+  protected readonly Math = Math;
   protected readonly fmtDate = fmtDate;
   protected readonly monthLabel = monthLabel;
   protected readonly categoryLabels = CATEGORY_LABELS;
@@ -148,7 +149,7 @@ export class App {
 
   protected entryLabel(e: Entry): string {
     if (e.kind === 'income') return 'Einnahme';
-    if (e.kind === 'savings') return 'Sparbuch';
+    if (e.kind === 'savings') return e.amount < 0 ? 'Vom Sparbuch' : 'Sparbuch';
     return CATEGORY_LABELS[e.category ?? 'misc'];
   }
 

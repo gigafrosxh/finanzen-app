@@ -194,7 +194,7 @@
                         <div class="muted small">{{ entryLabel(e) }} · {{ fmtDate(e.date) }}</div>
                       </div>
                       <strong [class.pos]="e.kind === 'income'" [class.save]="e.kind === 'savings'">
-                        {{ e.kind === 'expense' ? '−' : '+' }}{{ eur(e.amount) }}
+                        {{ e.kind === 'expense' || e.amount < 0 ? '−' : '+' }}{{ eur(Math.abs(e.amount)) }}
                       </strong>
                       <button class="icon-btn small" (click)="store.removeEntry(e.id)" aria-label="Löschen">🗑</button>
                     </div>
