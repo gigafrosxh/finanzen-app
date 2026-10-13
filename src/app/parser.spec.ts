@@ -14,6 +14,10 @@ describe('parseMessage', () => {
   it('erkennt Geschenke', () => {
     expect(parseMessage('Oma 20 geschenkt', today)).toMatchObject({ entry: { kind: 'income', amount: 20 } });
   });
+  it('erkennt Überweisungen als Einnahme', () => {
+    expect(parseMessage('Papa hat 30 überwiesen', today)).toMatchObject({ entry: { kind: 'income', amount: 30 } });
+    expect(parseMessage('Überweisung Max 12,50', today)).toMatchObject({ entry: { kind: 'income', amount: 12.5 } });
+  });
   it('erkennt Sparbuch', () => {
     expect(parseMessage('50 aufs Sparbuch', today)).toMatchObject({ entry: { kind: 'savings', amount: 50 } });
   });

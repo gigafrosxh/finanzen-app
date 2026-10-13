@@ -22,7 +22,7 @@ Auf dem anderen Gerät Einstellungen → „Importieren“.
 | `Döner 7,50`, `Mäcci 9,80`, `Billa 4,20` | Ausgabe Essen |
 | `tanken 38` | Ausgabe Tanken |
 | `Gewand 35`, `Friseur 15`, `Kino 12` | Gewand, Friseur, Sonstiges |
-| `Oma 20 geschenkt`, `50 bekommen` | Einnahme |
+| `Oma 20 geschenkt`, `50 bekommen`, `Papa hat 30 überwiesen` | Einnahme |
 | `50 aufs Sparbuch` | Wirklich aufs Sparbuch gelegt |
 | `heute kein Mittagessen`, `gestern nicht gegessen`, `am 5. kein Mittag` | Tag ohne Mittagessen |
 | `11 Schultage` | Lange Schultage (Essensgeld) für den Monat |

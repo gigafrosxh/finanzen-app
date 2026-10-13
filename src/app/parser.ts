@@ -55,7 +55,7 @@ export function parseMessage(input: string, today = new Date()): ParseResult {
   if (/sparbuch|gespart|angespart|sparen|eingezahlt/.test(text)) {
     return { type: 'entry', entry: { date, kind: 'savings', amount, note } };
   }
-  if (/geschenk|bekommen|gekriegt|erhalten|geburtstag|einnahme|verdient/.test(text)) {
+  if (/geschenk|bekommen|gekriegt|erhalten|geburtstag|einnahme|verdient|überwies|überweisung|zurückgezahlt/.test(text)) {
     return { type: 'entry', entry: { date, kind: 'income', amount, note } };
   }
   const category = CATEGORY_WORDS.find(([, re]) => re.test(text))?.[0] ?? 'misc';
