@@ -12,6 +12,11 @@ export interface Release {
 /** Neueste Version zuerst. Spiegelt CHANGELOG.md. */
 export const RELEASES: Release[] = [
   {
+    version: '1.3.0',
+    date: '13.10.2026',
+    changes: ['Jede Version wird automatisch als GitHub-Release veröffentlicht', 'Chat-Leiste sitzt am iPhone tiefer'],
+  },
+  {
     version: '1.2.1',
     date: '13.10.2026',
     changes: ['Versionsnummer ganz unten, antippen zeigt diese Liste', 'Tagesbudget fürs Essen rechnet mit den restlichen Schultagen'],

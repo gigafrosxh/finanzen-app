@@ -598,7 +598,10 @@ input[type='date'] {
 
 /* Eingabeleiste wie bei ChatGPT */
 .composer {
-  padding: 6px 16px calc(8px + env(safe-area-inset-bottom));
+  /* Die Hinweiszeile darf in den unteren Sicherheitsbereich rutschen, sie bleibt
+     aber über dem Home-Balken (der sitzt in den untersten ~13px). Die Eingabeleiste
+     selbst bleibt immer über dem Sicherheitsbereich. */
+  padding: 6px 16px max(8px, calc(env(safe-area-inset-bottom) - 14px));
 }
 .composer-inner {
   max-width: 760px;
@@ -642,8 +645,9 @@ input[type='date'] {
 .hint {
   text-align: center;
   font-size: 0.72rem;
+  line-height: 16px;
   color: var(--muted);
-  padding-top: 6px;
+  padding-top: 4px;
 }
 
 .toast {

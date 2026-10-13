@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Test, Release und Deploy
 
 on:
   push:
@@ -19,9 +19,34 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx ng test --watch=false
+
+      - name: Version prüfen
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          grep -q "^## $VERSION " CHANGELOG.md || { echo "::error::CHANGELOG.md hat keinen Eintrag für $VERSION"; exit 1; }
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
       - run: npx ng build --base-href /${{ github.event.repository.name }}/
       - run: cp dist/finanzen-app/browser/index.html dist/finanzen-app/browser/404.html && touch dist/finanzen-app/browser/.nojekyll
       - uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: dist/finanzen-app/browser
+
+      - name: GitHub-Releases anlegen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          notes() { awk -v v="$1" '$0 ~ "^## "v" " {f=1; next} /^## / {f=0} f' CHANGELOG.md; }
+          release() {
+            if gh release view "v$1" >/dev/null 2>&1; then echo "v$1 gibt es schon"; return; fi
+            notes "$1" > notes.md
+            gh release create "v$1" --target "$2" --title "v$1" --notes-file notes.md $3
+            echo "v$1 angelegt"
+          }
+          # Ältere Versionen einmalig nachtragen
+          grep -v '^#' .github/release-history.txt | while read -r v sha; do
+            [ -n "$v" ] && [ "$v" != "$VERSION" ] && release "$v" "$sha" "--latest=false"
+          done
+          # Aktuelle Version
+          release "$VERSION" "$GITHUB_SHA" "--latest"
