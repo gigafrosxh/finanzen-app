@@ -2,13 +2,27 @@ import { Component, ElementRef, computed, effect, inject, signal, viewChild } fr
 import { FormsModule } from '@angular/forms';
 import { SwUpdate } from '@angular/service-worker';
 import { eur, r2 } from './budget';
-import { CATEGORY_ICONS, CATEGORY_LABELS, Entry, EntryKind, ExpenseCategory, Settings } from './models';
+import { BankTx, ImportRow, REASON_TEXT, SetupSuggestion, buildRows, decodeFile, guessOwnName, parseGeorge, spanDays, suggestSettings, toEntry } from './george';
+import { CATEGORY_ICONS, CATEGORY_LABELS, Entry, EntryKind, ExpenseCategory, ImportCategory, Settings } from './models';
 import { isoDate } from './parser';
 import { Store, fmtDate, monthLabel } from './store';
 import { RELEASES, VERSION } from './version';
 
 type View = 'overview' | 'chat' | 'calendar' | 'entries' | 'stats' | 'settings';
 type EntryFilter = 'all' | ExpenseCategory | 'income' | 'savings';
+type ImportStep = 'file' | 'setup' | 'preview';
+
+/** Leere Felder statt 0 anzeigen, die App hat keine Vorgaben. */
+function blankZeros(s: Settings): Settings {
+  const c = structuredClone(s);
+  const blank = (o: object, keys: string[]) => {
+    const r = o as Record<string, unknown>;
+    for (const k of keys) if (!r[k]) r[k] = null;
+  };
+  blank(c, ['allowance', 'lunchRate', 'schoolDays', 'skippedLunchGoal', 'savingsStart', 'savingsTarget']);
+  blank(c.budgets, ['food', 'fuel', 'misc']);
+  return c;
+}
 
 interface CalendarDay {
   iso: string;
@@ -59,7 +73,38 @@ export class App {
 
   protected message = '';
   protected form = this.emptyForm();
-  protected settingsDraft: Settings = structuredClone(this.store.data().settings);
+  protected settingsDraft: Settings = blankZeros(this.store.data().settings);
+
+  // Import aus George
+  protected readonly importOpen = signal(false);
+  protected readonly importStep = signal<ImportStep>('file');
+  protected readonly importSetup = signal(false);
+  protected readonly importError = signal<string | null>(null);
+  protected readonly importRows = signal<ImportRow[]>([]);
+  protected readonly importFrom = signal('');
+  protected readonly reasonText = REASON_TEXT;
+  protected readonly importCategories: [ImportCategory, string][] = [
+    ['food', '🍔 Essen'],
+    ['fuel', '⛽ Tanken'],
+    ['clothes', '👕 Gewand'],
+    ['haircut', '💇 Friseur'],
+    ['misc', '🧾 Sonstiges'],
+    ['income', '🎁 Einnahme'],
+    ['savings', '🏦 Sparbuch'],
+    ['skip', '🚫 Ignorieren'],
+  ];
+  protected setupDraft: Settings = blankZeros(this.store.data().settings);
+  protected setupInfo: SetupSuggestion | null = null;
+  private importTxs: BankTx[] = [];
+  private importOwnName = '';
+  private importRules: Record<string, ImportCategory> = {};
+
+  protected readonly visibleImportRows = computed(() => {
+    const from = this.importFrom();
+    return this.importRows().filter((r) => !from || r.tx.bookingDate >= from);
+  });
+  protected readonly importCount = computed(() => this.visibleImportRows().filter((r) => r.selected).length);
+  protected readonly importSkipped = computed(() => this.visibleImportRows().filter((r) => !r.selected).length);
 
   private readonly chatEnd = viewChild<ElementRef<HTMLElement>>('chatEnd');
   private toastTimer?: ReturnType<typeof setTimeout>;
@@ -115,6 +160,8 @@ export class App {
   });
 
   constructor() {
+    // Erster Start: Begrüßung mit George-Export
+    if (this.store.needsSetup()) this.openImport(true);
     // Neue Version automatisch laden: beim Start und immer wenn die App wieder geöffnet wird
     const sw = inject(SwUpdate);
     if (sw.isEnabled) {
@@ -135,7 +182,7 @@ export class App {
   }
 
   protected show(view: View) {
-    if (view === 'settings') this.settingsDraft = structuredClone(this.store.data().settings);
+    if (view === 'settings') this.settingsDraft = blankZeros(this.store.data().settings);
     this.view.set(view);
     this.sidebarOpen.set(false);
   }
@@ -339,11 +386,123 @@ export class App {
     if (!confirm('Alle Daten auf diesem Gerät durch die Sicherung ersetzen?')) return;
     try {
       this.store.importJson(await file.text());
-      this.settingsDraft = structuredClone(this.store.data().settings);
+      this.settingsDraft = blankZeros(this.store.data().settings);
       this.showToast('Sicherung geladen.');
     } catch {
       this.showToast('Die Datei ist keine gültige Sicherung.');
     }
+  }
+
+  // ---------- Import aus George ----------
+
+  protected openImport(setup: boolean) {
+    this.importSetup.set(setup);
+    this.importStep.set('file');
+    this.importError.set(null);
+    this.importRows.set([]);
+    this.importOpen.set(true);
+    this.sidebarOpen.set(false);
+  }
+
+  protected skipSetup() {
+    this.store.finishSetup();
+    this.importOpen.set(false);
+  }
+
+  protected closeImport() {
+    this.importOpen.set(false);
+    this.importTxs = [];
+    this.importRows.set([]);
+  }
+
+  protected async importFile(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    this.importError.set(null);
+    try {
+      if (/\.xlsx?$/i.test(file.name)) throw new Error('Bitte in George als CSV exportieren, nicht als Excel.');
+      const text = decodeFile(await file.arrayBuffer());
+      const txs = parseGeorge(text);
+      const settings = this.store.data().settings;
+      // Eigener Name nur im Speicher, wird nicht gespeichert
+      this.importOwnName = guessOwnName(text, txs);
+      this.importTxs = txs;
+      this.importRules = {};
+      if (this.importSetup()) {
+        const days = spanDays(txs);
+        if (days < 28) throw new Error(`Der Export deckt nur ${Math.round(days)} Tage ab. Bitte exportiere mindestens einen Monat.`);
+        this.setupInfo = suggestSettings(txs, this.importOwnName);
+        this.setupDraft = blankZeros({ ...settings, ...this.setupInfo.settings });
+        this.importStep.set('setup');
+      } else {
+        this.showPreview(settings);
+      }
+    } catch (e) {
+      this.importError.set(e instanceof Error ? e.message : 'Die Datei konnte nicht gelesen werden.');
+    }
+  }
+
+  private showPreview(settings: Settings) {
+    const all = this.store.data().months.flatMap((m) => m.entries);
+    const rows = buildRows(this.importTxs, settings, all, this.importOwnName).sort((a, b) =>
+      b.tx.date.localeCompare(a.tx.date),
+    );
+    this.importRows.set(rows);
+    this.importFrom.set(settings.lastImport && !this.importSetup() ? settings.lastImport : '');
+    this.importStep.set('preview');
+  }
+
+  protected addSetupFixedCost() {
+    this.setupDraft.fixedCosts.push({ name: '', amount: 0 });
+  }
+
+  protected setupContinue() {
+    const s = this.setupDraft;
+    const n = (v: unknown) => (v === null || v === undefined || v === '' ? 0 : this.numberInput(v));
+    s.fixedCosts = s.fixedCosts.filter((f) => f.name.trim()).map((f) => ({ name: f.name.trim(), amount: n(f.amount) }));
+    for (const k of ['allowance', 'lunchRate', 'schoolDays', 'skippedLunchGoal', 'savingsStart', 'savingsTarget'] as const) s[k] = n(s[k]);
+    for (const k of ['food', 'fuel', 'misc'] as const) s.budgets[k] = n(s.budgets[k]);
+    this.showPreview(s);
+  }
+
+  protected setRowCategory(row: ImportRow, category: ImportCategory) {
+    // Als Regel merken und auf gleiche Händler anwenden
+    this.importRules[row.tx.key] = category;
+    this.importRows.update((rows) =>
+      rows.map((r) =>
+        r === row || (r.tx.key === row.tx.key && r.reason !== 'internal' && r.reason !== 'duplicate')
+          ? { ...r, category, selected: category !== 'skip', reason: category === 'skip' ? r.reason : undefined }
+          : r,
+      ),
+    );
+  }
+
+  protected toggleRow(row: ImportRow) {
+    this.importRows.update((rows) => rows.map((r) => (r === row ? { ...r, selected: !r.selected } : r)));
+  }
+
+  protected setAllRows(selected: boolean) {
+    const visible = new Set(this.visibleImportRows());
+    this.importRows.update((rows) => rows.map((r) => (visible.has(r) && r.category !== 'skip' ? { ...r, selected } : r)));
+  }
+
+  protected runImport() {
+    const rows = this.visibleImportRows();
+    const entries = rows.filter((r) => r.selected).flatMap((r) => toEntry(r) ?? []);
+    if (this.importSetup()) this.store.finishSetup(structuredClone(this.setupDraft));
+    const lastDate = rows.map((r) => r.tx.bookingDate).sort().pop() ?? '';
+    this.store.importBank(
+      entries,
+      rows.map((r) => r.tx.hash),
+      this.importRules,
+      lastDate,
+    );
+    this.settingsDraft = blankZeros(this.store.data().settings);
+    this.closeImport();
+    this.showToast(entries.length === 1 ? '1 Buchung importiert.' : `${entries.length} Buchungen importiert.`);
+    if (this.view() === 'settings' && this.importSetup()) this.show('overview');
   }
 
   protected percent(ratio: number): number {

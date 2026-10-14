@@ -5,6 +5,11 @@ Die Liste in der App steht in `src/app/version.ts`, die Versionsnummer in `packa
 
 **So kommt eine neue Version raus:** Version in `package.json` erhöhen, Eintrag hier und in `src/app/version.ts` ergänzen, auf `main` pushen. GitHub Actions testet, veröffentlicht die App und legt automatisch das Release `vX.Y.Z` mit diesen Notizen an. Fehlt der Eintrag hier, schlägt der Build fehl.
 
+## 1.4.0 (13.10.2026)
+- Import aus George: CSV-Export hochladen, Kategorien werden vorgeschlagen, Doppeltes übersprungen, Korrekturen gemerkt
+- Beim ersten Start richtet sich die App aus einem George-Export ein (Taschengeld, Abos, Budgets), oder du startest ohne
+- Keine vorgegebenen Werte mehr, leere Budgets lösen keine Warnungen aus
+
 ## 1.3.2 (13.10.2026)
 - Zoomen mit zwei Fingern und Doppeltipp ist gesperrt
 
